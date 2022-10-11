@@ -578,7 +578,7 @@ float SchlickFresnel(float u) {
 	return m2 * m2 * m; // pow(m,5)
 }
 
-void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, float attenuation, vec3 f0, float roughness, float metallic, float specular_amount, vec3 albedo, inout float alpha,
+void light_compute(uint light_count, vec3 N, vec3 L, vec3 V, float A, vec3 light_color, float attenuation, vec3 f0, float roughness, float metallic, float specular_amount, vec3 albedo, inout float alpha,
 #ifdef LIGHT_BACKLIGHT_USED
 		vec3 backlight,
 #endif
@@ -591,6 +591,9 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, float atte
 #ifdef LIGHT_ANISOTROPY_USED
 		vec3 B, vec3 T, float anisotropy,
 #endif
+#ifdef USE_LIGHT_RAW_OUTPUT
+		inout vec3 output_light,
+#endif
 		inout vec3 diffuse_light, inout vec3 specular_light) {
 
 #if defined(USE_LIGHT_SHADER_CODE)
@@ -601,7 +604,6 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, float atte
 	vec3 view = V;
 
 	/* clang-format off */
-
 
 #CODE : LIGHT
 
@@ -741,7 +743,7 @@ float get_omni_attenuation(float distance, float inv_range, float decay) {
 	return nd * pow(max(distance, 0.0001), -decay);
 }
 
-void light_process_omni(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 f0, float roughness, float metallic, float shadow, vec3 albedo, inout float alpha,
+void light_process_omni(uint light_count, uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 f0, float roughness, float metallic, float shadow, vec3 albedo, inout float alpha,
 #ifdef LIGHT_BACKLIGHT_USED
 		vec3 backlight,
 #endif
@@ -753,6 +755,9 @@ void light_process_omni(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 f
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 		vec3 binormal, vec3 tangent, float anisotropy,
+#endif
+#ifdef USE_LIGHT_RAW_OUTPUT
+		inout vec3 output_light,
 #endif
 		inout vec3 diffuse_light, inout vec3 specular_light) {
 	vec3 light_rel_vec = omni_lights[idx].position - vertex;
@@ -766,7 +771,7 @@ void light_process_omni(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 f
 		size_A = max(0.0, 1.0 - 1.0 / sqrt(1.0 + t * t));
 	}
 
-	light_compute(normal, normalize(light_rel_vec), eye_vec, size_A, color, omni_attenuation, f0, roughness, metallic, omni_lights[idx].specular_amount, albedo, alpha,
+	light_compute(light_count, normal, normalize(light_rel_vec), eye_vec, size_A, color, omni_attenuation, f0, roughness, metallic, omni_lights[idx].specular_amount, albedo, alpha,
 #ifdef LIGHT_BACKLIGHT_USED
 			backlight,
 #endif
@@ -780,10 +785,11 @@ void light_process_omni(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 f
 			binormal, tangent, anisotropy,
 #endif
 			diffuse_light,
-			specular_light);
+			specular_light,
+			output_light);
 }
 
-void light_process_spot(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 f0, float roughness, float metallic, float shadow, vec3 albedo, inout float alpha,
+void light_process_spot(uint light_count, uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 f0, float roughness, float metallic, float shadow, vec3 albedo, inout float alpha,
 #ifdef LIGHT_BACKLIGHT_USED
 		vec3 backlight,
 #endif
@@ -795,6 +801,9 @@ void light_process_spot(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 f
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 		vec3 binormal, vec3 tangent, float anisotropy,
+#endif
+#ifdef USE_LIGHT_RAW_OUTPUT
+		inout vec3 output_light,
 #endif
 		inout vec3 diffuse_light,
 		inout vec3 specular_light) {
@@ -815,7 +824,7 @@ void light_process_spot(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 f
 		size_A = max(0.0, 1.0 - 1.0 / sqrt(1.0 + t * t));
 	}
 
-	light_compute(normal, normalize(light_rel_vec), eye_vec, size_A, color, spot_attenuation, f0, roughness, metallic, spot_lights[idx].specular_amount, albedo, alpha,
+	light_compute(light_count, normal, normalize(light_rel_vec), eye_vec, size_A, color, spot_attenuation, f0, roughness, metallic, spot_lights[idx].specular_amount, albedo, alpha,
 #ifdef LIGHT_BACKLIGHT_USED
 			backlight,
 #endif
@@ -1042,6 +1051,10 @@ void main() {
 	vec3 diffuse_light = vec3(0.0, 0.0, 0.0);
 	vec3 ambient_light = vec3(0.0, 0.0, 0.0);
 
+#ifdef USE_LIGHT_RAW_OUTPUT
+	vec3 output_light = vec3(0.0, 0.0, 0.0);
+#endif
+
 #ifdef BASE_PASS
 	/////////////////////// LIGHTING //////////////////////////////
 
@@ -1126,10 +1139,12 @@ void main() {
 
 #endif // BASE_PASS
 
+	uint light_count = 0;
+
 #ifndef DISABLE_LIGHT_DIRECTIONAL
 	//diffuse_light = normal; //
 	for (uint i = uint(0); i < scene_data.directional_light_count; i++) {
-		light_compute(normal, normalize(directional_lights[i].direction), normalize(view), directional_lights[i].size, directional_lights[i].color * directional_lights[i].energy, 1.0, f0, roughness, metallic, 1.0, albedo, alpha,
+		light_compute(light_count, normal, normalize(directional_lights[i].direction), normalize(view), directional_lights[i].size, directional_lights[i].color * directional_lights[i].energy, 1.0, f0, roughness, metallic, 1.0, albedo, alpha,
 #ifdef LIGHT_BACKLIGHT_USED
 				backlight,
 #endif
@@ -1143,8 +1158,13 @@ void main() {
 				binormal,
 				tangent, anisotropy,
 #endif
+#ifdef USE_LIGHT_RAW_OUTPUT
+				output_light,
+#endif
 				diffuse_light,
 				specular_light);
+
+		light_count++;
 	}
 #endif //!DISABLE_LIGHT_DIRECTIONAL
 
@@ -1153,7 +1173,7 @@ void main() {
 		if (i >= omni_light_count) {
 			break;
 		}
-		light_process_omni(omni_light_indices[i], vertex, view, normal, f0, roughness, metallic, 0.0, albedo, alpha,
+		light_process_omni(light_count, omni_light_indices[i], vertex, view, normal, f0, roughness, metallic, 0.0, albedo, alpha,
 #ifdef LIGHT_BACKLIGHT_USED
 				backlight,
 #endif
@@ -1167,7 +1187,11 @@ void main() {
 #ifdef LIGHT_ANISOTROPY_USED
 				binormal, tangent, anisotropy,
 #endif
+#ifdef USE_LIGHT_RAW_OUTPUT
+				output_light,
+#endif
 				diffuse_light, specular_light);
+		light_count++;
 	}
 #endif // !DISABLE_LIGHT_OMNI
 
@@ -1176,7 +1200,7 @@ void main() {
 		if (i >= spot_light_count) {
 			break;
 		}
-		light_process_spot(spot_light_indices[i], vertex, view, normal, f0, roughness, metallic, 0.0, albedo, alpha,
+		light_process_spot(light_count, spot_light_indices[i], vertex, view, normal, f0, roughness, metallic, 0.0, albedo, alpha,
 #ifdef LIGHT_BACKLIGHT_USED
 				backlight,
 #endif
@@ -1191,7 +1215,11 @@ void main() {
 				tangent,
 				binormal, anisotropy,
 #endif
+#ifdef USE_LIGHT_RAW_OUTPUT
+				output_light,
+#endif
 				diffuse_light, specular_light);
+		light_count++;
 	}
 
 #endif // !DISABLE_LIGHT_SPOT
@@ -1227,12 +1255,16 @@ void main() {
 	frag_color = vec4(albedo, alpha);
 #else
 
+#ifdef USE_LIGHT_RAW_OUTPUT
+	frag_color = vec4(output_light, alpha);
+#else
 	diffuse_light *= albedo;
 
 	diffuse_light *= 1.0 - metallic;
 	ambient_light *= 1.0 - metallic;
 
 	frag_color = vec4(diffuse_light + specular_light, alpha);
+#endif
 #ifdef BASE_PASS
 	frag_color.rgb += emission + ambient_light;
 #endif

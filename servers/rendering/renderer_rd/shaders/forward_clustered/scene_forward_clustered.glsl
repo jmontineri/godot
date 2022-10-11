@@ -1058,6 +1058,10 @@ void fragment_shader(in SceneData scene_data) {
 	vec3 specular_light = vec3(0.0, 0.0, 0.0);
 	vec3 diffuse_light = vec3(0.0, 0.0, 0.0);
 	vec3 ambient_light = vec3(0.0, 0.0, 0.0);
+#ifdef USE_LIGHT_RAW_OUTPUT
+	vec3 output_light = vec3(0.0, 0.0, 0.0);
+#endif
+
 
 #ifndef MODE_UNSHADED
 	// Used in regular draw pass and when drawing SDFs for SDFGI and materials for VoxelGI.
@@ -1493,6 +1497,7 @@ void fragment_shader(in SceneData scene_data) {
 // LIGHTING
 #if !defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED)
 
+	uint light_count = 0;
 	{ // Directional light.
 
 		// Do shadow and lighting in two passes to reduce register pressure.
@@ -1787,7 +1792,7 @@ void fragment_shader(in SceneData scene_data) {
 
 			float size_A = sc_use_light_soft_shadows ? directional_lights.data[i].size : 0.0;
 
-			light_compute(normal, directional_lights.data[i].direction, normalize(view), size_A, directional_lights.data[i].color * directional_lights.data[i].energy, shadow, f0, orms, 1.0, albedo, alpha,
+			light_compute(normal, directional_lights.data[i].direction, normalize(view), size_A, directional_lights.data[i].color * directional_lights.data[i].energy, shadow, shadow, f0, orms, 1.0, albedo, alpha, light_count,
 #ifdef LIGHT_BACKLIGHT_USED
 					backlight,
 #endif
@@ -1807,8 +1812,12 @@ void fragment_shader(in SceneData scene_data) {
 					binormal,
 					tangent, anisotropy,
 #endif
+#ifdef USE_LIGHT_RAW_OUTPUT
+						output_light,
+#endif
 					diffuse_light,
 					specular_light);
+				light_count++;
 		}
 	}
 
@@ -1859,7 +1868,7 @@ void fragment_shader(in SceneData scene_data) {
 
 				shadow = blur_shadow(shadow);
 
-				light_process_omni(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, orms, shadow, albedo, alpha,
+				light_process_omni(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, orms, shadow, albedo, alpha, light_count,
 #ifdef LIGHT_BACKLIGHT_USED
 						backlight,
 #endif
@@ -1878,7 +1887,11 @@ void fragment_shader(in SceneData scene_data) {
 #ifdef LIGHT_ANISOTROPY_USED
 						tangent, binormal, anisotropy,
 #endif
+#ifdef USE_LIGHT_RAW_OUTPUT
+						output_light,
+#endif
 						diffuse_light, specular_light);
+				light_count++;
 			}
 		}
 	}
@@ -1931,7 +1944,7 @@ void fragment_shader(in SceneData scene_data) {
 
 				shadow = blur_shadow(shadow);
 
-				light_process_spot(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, orms, shadow, albedo, alpha,
+				light_process_spot(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, orms, shadow, albedo, alpha, light_count,
 #ifdef LIGHT_BACKLIGHT_USED
 						backlight,
 #endif
@@ -1951,7 +1964,11 @@ void fragment_shader(in SceneData scene_data) {
 						tangent,
 						binormal, anisotropy,
 #endif
+#ifdef USE_LIGHT_RAW_OUTPUT
+						output_light,
+#endif
 						diffuse_light, specular_light);
+				light_count++;
 			}
 		}
 	}
@@ -2151,7 +2168,11 @@ void fragment_shader(in SceneData scene_data) {
 #ifdef MODE_UNSHADED
 	frag_color = vec4(albedo, alpha);
 #else
+#ifdef USE_LIGHT_RAW_OUTPUT
+	frag_color = vec4(output_light, alpha);
+#else
 	frag_color = vec4(emission + ambient_light + diffuse_light + specular_light, alpha);
+#endif
 //frag_color = vec4(1.0);
 #endif //USE_NO_SHADING
 

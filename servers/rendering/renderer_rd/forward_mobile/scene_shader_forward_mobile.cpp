@@ -609,10 +609,12 @@ void SceneShaderForwardMobile::init(const String p_defines) {
 		//for light
 		actions.renames["VIEW"] = "view";
 		actions.renames["LIGHT_COLOR"] = "light_color";
+		actions.renames["LIGHT_COUNT"] = "light_count";
 		actions.renames["LIGHT"] = "light";
 		actions.renames["ATTENUATION"] = "attenuation";
 		actions.renames["DIFFUSE_LIGHT"] = "diffuse_light";
 		actions.renames["SPECULAR_LIGHT"] = "specular_light";
+		actions.renames["RAW_OUTPUT_LIGHT"] = "output_light";
 
 		actions.usage_defines["NORMAL"] = "#define NORMAL_USED\n";
 		actions.usage_defines["TANGENT"] = "#define TANGENT_USED\n";
@@ -652,6 +654,7 @@ void SceneShaderForwardMobile::init(const String p_defines) {
 
 		actions.usage_defines["DIFFUSE_LIGHT"] = "#define USE_LIGHT_SHADER_CODE\n";
 		actions.usage_defines["SPECULAR_LIGHT"] = "#define USE_LIGHT_SHADER_CODE\n";
+		actions.usage_defines["RAW_OUTPUT_LIGHT"] = "#define USE_LIGHT_SHADER_CODE\n#define USE_LIGHT_RAW_OUTPUT\n";
 
 		actions.usage_defines["FOG"] = "#define CUSTOM_FOG_USED\n";
 		actions.usage_defines["RADIANCE"] = "#define CUSTOM_RADIANCE_USED\n";
