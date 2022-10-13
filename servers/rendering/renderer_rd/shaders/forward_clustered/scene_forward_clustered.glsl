@@ -1058,9 +1058,6 @@ void fragment_shader(in SceneData scene_data) {
 	vec3 specular_light = vec3(0.0, 0.0, 0.0);
 	vec3 diffuse_light = vec3(0.0, 0.0, 0.0);
 	vec3 ambient_light = vec3(0.0, 0.0, 0.0);
-#ifdef USE_LIGHT_RAW_OUTPUT
-	vec3 output_light = vec3(0.0, 0.0, 0.0);
-#endif
 
 
 #ifndef MODE_UNSHADED
@@ -1497,7 +1494,6 @@ void fragment_shader(in SceneData scene_data) {
 // LIGHTING
 #if !defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED)
 
-	uint light_count = 0;
 	{ // Directional light.
 
 		// Do shadow and lighting in two passes to reduce register pressure.
@@ -1792,7 +1788,7 @@ void fragment_shader(in SceneData scene_data) {
 
 			float size_A = sc_use_light_soft_shadows ? directional_lights.data[i].size : 0.0;
 
-			light_compute(normal, directional_lights.data[i].direction, normalize(view), size_A, directional_lights.data[i].color * directional_lights.data[i].energy, shadow, shadow, f0, orms, 1.0, albedo, alpha, light_count,
+			light_compute(normal, directional_lights.data[i].direction, normalize(view), size_A, directional_lights.data[i].color * directional_lights.data[i].energy, shadow, shadow, f0, orms, 1.0, albedo, alpha, 0,
 #ifdef LIGHT_BACKLIGHT_USED
 					backlight,
 #endif
@@ -1812,12 +1808,8 @@ void fragment_shader(in SceneData scene_data) {
 					binormal,
 					tangent, anisotropy,
 #endif
-#ifdef USE_LIGHT_RAW_OUTPUT
-						output_light,
-#endif
 					diffuse_light,
 					specular_light);
-				light_count++;
 		}
 	}
 
@@ -1868,7 +1860,7 @@ void fragment_shader(in SceneData scene_data) {
 
 				shadow = blur_shadow(shadow);
 
-				light_process_omni(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, orms, shadow, albedo, alpha, light_count,
+				light_process_omni(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, orms, shadow, albedo, alpha,
 #ifdef LIGHT_BACKLIGHT_USED
 						backlight,
 #endif
@@ -1887,11 +1879,7 @@ void fragment_shader(in SceneData scene_data) {
 #ifdef LIGHT_ANISOTROPY_USED
 						tangent, binormal, anisotropy,
 #endif
-#ifdef USE_LIGHT_RAW_OUTPUT
-						output_light,
-#endif
 						diffuse_light, specular_light);
-				light_count++;
 			}
 		}
 	}
@@ -1944,7 +1932,7 @@ void fragment_shader(in SceneData scene_data) {
 
 				shadow = blur_shadow(shadow);
 
-				light_process_spot(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, orms, shadow, albedo, alpha, light_count,
+				light_process_spot(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, orms, shadow, albedo, alpha,
 #ifdef LIGHT_BACKLIGHT_USED
 						backlight,
 #endif
@@ -1964,11 +1952,7 @@ void fragment_shader(in SceneData scene_data) {
 						tangent,
 						binormal, anisotropy,
 #endif
-#ifdef USE_LIGHT_RAW_OUTPUT
-						output_light,
-#endif
 						diffuse_light, specular_light);
-				light_count++;
 			}
 		}
 	}
@@ -2129,6 +2113,7 @@ void fragment_shader(in SceneData scene_data) {
 //nothing happens, so a tree-ssa optimizer will result in no fragment shader :)
 #else
 
+#ifndef USE_POSTLIGHT
 	// multiply by albedo
 	diffuse_light *= albedo; // ambient must be multiplied by albedo at the end
 
@@ -2141,6 +2126,7 @@ void fragment_shader(in SceneData scene_data) {
 	metallic = unpackUnorm4x8(orms).z;
 	diffuse_light *= 1.0 - metallic;
 	ambient_light *= 1.0 - metallic;
+#endif
 
 	//restore fog
 	fog = vec4(unpackHalf2x16(fog_rg), unpackHalf2x16(fog_ba));
@@ -2165,16 +2151,21 @@ void fragment_shader(in SceneData scene_data) {
 
 #else //MODE_SEPARATE_SPECULAR
 
+
+#ifdef USE_POSTLIGHT
+	vec3 output_light = vec3(0.0, 0.0, 0.0);
+	{
+#CODE : POSTLIGHT
+	}
+	frag_color = vec4(emission + output_light, alpha);
+#else
 #ifdef MODE_UNSHADED
 	frag_color = vec4(albedo, alpha);
-#else
-#ifdef USE_LIGHT_RAW_OUTPUT
-	frag_color = vec4(output_light, alpha);
 #else
 	frag_color = vec4(emission + ambient_light + diffuse_light + specular_light, alpha);
 #endif
 //frag_color = vec4(1.0);
-#endif //USE_NO_SHADING
+#endif //USE_POSTLIGHT
 
 	// Draw "fixed" fog before volumetric fog to ensure volumetric fog can appear in front of the sky.
 	frag_color.rgb = mix(frag_color.rgb, fog.rgb, fog.a);
