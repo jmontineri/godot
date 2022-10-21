@@ -1245,7 +1245,7 @@ void Environment::_bind_methods() {
 
 	ADD_GROUP("Chromatic Aberration", "chromatic_aberration_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "chromatic_aberration_enable"), "set_aberration_enable", "get_aberration_enable");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "chromatic_aberration_strength", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_aberration_strength", "get_aberration_strength");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "chromatic_aberration_strength", PROPERTY_HINT_RANGE, "0,0.1,0.001"), "set_aberration_strength", "get_aberration_strength");
 
 
 	// Tonemap
