@@ -665,6 +665,9 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
 			tonemap.use_fxaa = true;
 		}
 
+		tonemap.use_chromatic_aberration = environment_get_use_chromatic_aberration(p_render_data->environment);
+		tonemap.chromatic_aberration_strength = environment_get_chromatic_aberration_strength(p_render_data->environment);
+
 		tonemap.use_debanding = rb->get_use_debanding();
 		tonemap.texture_size = Vector2i(rb->get_internal_size().x, rb->get_internal_size().y);
 

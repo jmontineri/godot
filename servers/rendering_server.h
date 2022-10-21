@@ -1037,6 +1037,8 @@ public:
 	virtual void environment_glow_set_use_bicubic_upscale(bool p_enable) = 0;
 	virtual void environment_glow_set_use_high_quality(bool p_enable) = 0;
 
+	virtual void environment_set_chromatic_aberration(RID p_env, bool use, float strength) = 0;
+
 	enum EnvironmentToneMapper {
 		ENV_TONE_MAPPER_LINEAR,
 		ENV_TONE_MAPPER_REINHARD,

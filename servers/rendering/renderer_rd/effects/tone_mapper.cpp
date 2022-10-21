@@ -127,6 +127,9 @@ void ToneMapper::tonemapper(RID p_source_color, RID p_dst_framebuffer, const Ton
 	tonemap.push_constant.pixel_size[0] = 1.0 / p_settings.texture_size.x;
 	tonemap.push_constant.pixel_size[1] = 1.0 / p_settings.texture_size.y;
 
+	tonemap.push_constant.use_chromatic_aberration = p_settings.use_chromatic_aberration;
+	tonemap.push_constant.chromatic_aberration_strength = p_settings.chromatic_aberration_strength;
+
 	if (p_settings.view_count > 1) {
 		// Use MULTIVIEW versions
 		mode += 6;

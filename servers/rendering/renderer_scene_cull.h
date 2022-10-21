@@ -1117,6 +1117,8 @@ public:
 	PASS1RC(float, environment_get_ambient_sky_contribution, RID)
 	PASS1RC(RS::EnvironmentReflectionSource, environment_get_reflection_source, RID)
 
+	PASS3(environment_set_chromatic_aberration, RID, bool, float)
+
 	// Tonemap
 	PASS4(environment_set_tonemap, RID, RS::EnvironmentToneMapper, float, float)
 	PASS1RC(RS::EnvironmentToneMapper, environment_get_tone_mapper, RID)

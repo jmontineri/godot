@@ -201,7 +201,35 @@ void Environment::_update_ambient_light() {
 			ambient_sky_contribution, RS::EnvironmentReflectionSource(reflection_source));
 }
 
+void Environment::_update_chromatic_aberration() {
+	RS::get_singleton()->environment_set_chromatic_aberration(
+		environment,
+		chromatic_aberration_enabled,
+		chromatic_aberration_strength
+	);
+}
+
 // Tonemap
+
+void Environment::set_aberration_enable(bool value){
+	chromatic_aberration_enabled = value;
+	_update_chromatic_aberration();
+	notify_property_list_changed();
+}
+
+bool Environment::get_aberration_enable(){
+	return chromatic_aberration_enabled;
+}
+
+void Environment::set_aberration_strength(float value){
+	chromatic_aberration_strength = value;
+	_update_chromatic_aberration();
+	notify_property_list_changed();
+}
+
+float Environment::get_aberration_strength(){
+	return chromatic_aberration_strength;
+}
 
 void Environment::set_tonemapper(ToneMapper p_tone_mapper) {
 	tone_mapper = p_tone_mapper;
@@ -1207,6 +1235,18 @@ void Environment::_bind_methods() {
 
 	ADD_GROUP("Reflected Light", "reflected_light_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "reflected_light_source", PROPERTY_HINT_ENUM, "Background,Disabled,Sky"), "set_reflection_source", "get_reflection_source");
+
+	// Chromatic aberration
+
+	ClassDB::bind_method(D_METHOD("set_aberration_enable", "enable"), &Environment::set_aberration_enable);
+	ClassDB::bind_method(D_METHOD("get_aberration_enable"), &Environment::get_aberration_enable);
+	ClassDB::bind_method(D_METHOD("set_aberration_strength", "strength"), &Environment::set_aberration_strength);
+	ClassDB::bind_method(D_METHOD("get_aberration_strength"), &Environment::get_aberration_strength);
+
+	ADD_GROUP("Chromatic Aberration", "chromatic_aberration_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "chromatic_aberration_enable"), "set_aberration_enable", "get_aberration_enable");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "chromatic_aberration_strength", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_aberration_strength", "get_aberration_strength");
+
 
 	// Tonemap
 

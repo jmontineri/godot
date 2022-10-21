@@ -109,6 +109,11 @@ public:
 	float environment_get_ambient_sky_contribution(RID p_env) const;
 	RS::EnvironmentReflectionSource environment_get_reflection_source(RID p_env) const;
 
+	// Chromatic aberration
+	void environment_set_chromatic_aberration(RID p_env, bool use, float strength);
+	bool environment_get_use_chromatic_aberration(RID p_env) const;
+	float environment_get_chromatic_aberration_strength(RID p_env) const;
+
 	// Tonemap
 	void environment_set_tonemap(RID p_env, RS::EnvironmentToneMapper p_tone_mapper, float p_exposure, float p_white);
 	RS::EnvironmentToneMapper environment_get_tone_mapper(RID p_env) const;

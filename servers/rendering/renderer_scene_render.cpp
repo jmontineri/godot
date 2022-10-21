@@ -288,6 +288,20 @@ RS::EnvironmentReflectionSource RendererSceneRender::environment_get_reflection_
 	return environment_storage.environment_get_reflection_source(p_env);
 }
 
+// Chromatic aberration
+
+void RendererSceneRender::environment_set_chromatic_aberration(RID p_env, bool use, float strength) {
+	environment_storage.environment_set_chromatic_aberration(p_env, use, strength);
+}
+
+bool RendererSceneRender::environment_get_use_chromatic_aberration(RID p_env) const {
+	return environment_storage.environment_get_use_chromatic_aberration(p_env);
+}
+
+float RendererSceneRender::environment_get_chromatic_aberration_strength(RID p_env) const {
+	return environment_storage.environment_get_chromatic_aberration_strength(p_env);
+}
+
 // Tonemap
 
 void RendererSceneRender::environment_set_tonemap(RID p_env, RS::EnvironmentToneMapper p_tone_mapper, float p_exposure, float p_white) {

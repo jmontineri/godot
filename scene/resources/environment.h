@@ -106,6 +106,11 @@ private:
 	ReflectionSource reflection_source = REFLECTION_SOURCE_BG;
 	void _update_ambient_light();
 
+	// Chromatic aberration
+	bool chromatic_aberration_enabled = false;
+	float chromatic_aberration_strength = 0.0;
+	void _update_chromatic_aberration();
+
 	// Tonemap
 	ToneMapper tone_mapper = TONE_MAPPER_LINEAR;
 	float tonemap_exposure = 1.0;
@@ -250,6 +255,12 @@ public:
 	float get_ambient_light_sky_contribution() const;
 	void set_reflection_source(ReflectionSource p_source);
 	ReflectionSource get_reflection_source() const;
+
+	// Aberration
+	void set_aberration_enable(bool enabled);
+	bool get_aberration_enable();
+	void set_aberration_strength(float strength);
+	float get_aberration_strength();
 
 	// Tonemap
 	void set_tonemapper(ToneMapper p_tone_mapper);

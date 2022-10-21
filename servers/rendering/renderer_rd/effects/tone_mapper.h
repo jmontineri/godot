@@ -83,6 +83,12 @@ private:
 		float pixel_size[2]; //  8 - 104
 		uint32_t use_fxaa; //  4 - 108
 		uint32_t use_debanding; //  4 - 112
+
+		uint32_t use_chromatic_aberration; // 4 - 116
+		float chromatic_aberration_strength; // 4 - 120
+
+		uint32_t unused1; // 4 - 124
+		uint32_t unused2; // 4 - 128
 	};
 
 	/* tonemap actually writes to a framebuffer, which is
@@ -127,6 +133,9 @@ public:
 		float auto_exposure_scale = 0.5;
 		RID exposure_texture;
 		float luminance_multiplier = 1.0;
+
+		bool use_chromatic_aberration = false;
+		float chromatic_aberration_strength = 0.0;
 
 		bool use_bcs = false;
 		float brightness = 1.0;

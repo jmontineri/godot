@@ -81,6 +81,12 @@ layout(push_constant, std430) uniform Params {
 	vec2 pixel_size;
 	bool use_fxaa;
 	bool use_debanding;
+
+	bool use_chromatic_aberration;
+	float chromatic_aberration_strength;
+
+	bool unused1;
+	bool unused2;
 }
 params;
 
@@ -353,22 +359,75 @@ vec3 apply_color_correction(vec3 color) {
 }
 #endif
 
+#ifdef MULTIVIEW
+
+vec4 apply_chromatic_aberration(sampler2DArray texture, vec2 uv, float index, float amount)
+{
+	vec2 uv_r = (uv - vec2(0.5, 0.5)) *  (1 - amount) + vec2(0.5, 0.5);
+	vec2 uv_b = (uv - vec2(0.5, 0.5)) *  (1 + amount) + vec2(0.5, 0.5);
+
+	float r = textureLod(texture, vec3(uv_r, index), 0.0f).r;
+	vec2 ga = textureLod(texture, vec3(uv, index), 0.0f).ga;
+	float b = textureLod(texture, vec3(uv_b, index), 0.0f).b;
+
+	return vec4(r, ga.x, b, ga.y);
+}
+
+#else
+
+vec4 apply_chromatic_aberration(sampler2D texture, vec2 uv, float amount)
+{
+	vec2 uv_r = (uv - vec2(0.5, 0.5)) *  (1.0 - amount) + vec2(0.5, 0.5);
+	vec2 uv_b = (uv - vec2(0.5, 0.5)) *  (1.0 + amount) + vec2(0.5, 0.5);
+
+	float r = textureLod(texture, uv_r, 0.0f).r;
+	vec2 ga = textureLod(texture, uv, 0.0f).ga;
+	float b = textureLod(texture, uv_b, 0.0f).b;
+
+	return vec4(r, ga.x, b, ga.y);
+}
+
+#endif
+
 #ifndef SUBPASS
 vec3 do_fxaa(vec3 color, float exposure, vec2 uv_interp) {
 	const float FXAA_REDUCE_MIN = (1.0 / 128.0);
 	const float FXAA_REDUCE_MUL = (1.0 / 8.0);
 	const float FXAA_SPAN_MAX = 8.0;
 
+	vec3 rgbNW;
+	vec3 rgbNE;
+	vec3 rgbSW;
+	vec3 rgbSE;
+
 #ifdef MULTIVIEW
-	vec3 rgbNW = textureLod(source_color, vec3(uv_interp + vec2(-0.5, -0.5) * params.pixel_size, ViewIndex), 0.0).xyz * exposure * params.luminance_multiplier;
-	vec3 rgbNE = textureLod(source_color, vec3(uv_interp + vec2(0.5, -0.5) * params.pixel_size, ViewIndex), 0.0).xyz * exposure * params.luminance_multiplier;
-	vec3 rgbSW = textureLod(source_color, vec3(uv_interp + vec2(-0.5, 0.5) * params.pixel_size, ViewIndex), 0.0).xyz * exposure * params.luminance_multiplier;
-	vec3 rgbSE = textureLod(source_color, vec3(uv_interp + vec2(0.5, 0.5) * params.pixel_size, ViewIndex), 0.0).xyz * exposure * params.luminance_multiplier;
+	if(params.use_chromatic_aberration){
+		rgbNW = apply_chromatic_aberration(source_color, vec3(uv_interp + vec2(-0.5, -0.5) * params.pixel_size, ViewIndex), params.chromatic_aberration_strength).xyz * exposure * params.luminance_multiplier;
+		rgbNE = apply_chromatic_aberration(source_color, vec3(uv_interp + vec2(0.5, -0.5) * params.pixel_size, ViewIndex), params.chromatic_aberration_strength).xyz * exposure * params.luminance_multiplier;
+		rgbSW = apply_chromatic_aberration(source_color, vec3(uv_interp + vec2(-0.5, 0.5) * params.pixel_size, ViewIndex), params.chromatic_aberration_strength).xyz * exposure * params.luminance_multiplier;
+		rgbSE = apply_chromatic_aberration(source_color, vec3(uv_interp + vec2(0.5, 0.5) * params.pixel_size, ViewIndex), params.chromatic_aberration_strength).xyz * exposure * params.luminance_multiplier;
+	}
+	else
+	{
+		rgbNW = textureLod(source_color, vec3(uv_interp + vec2(-0.5, -0.5) * params.pixel_size, ViewIndex), 0.0).xyz * exposure * params.luminance_multiplier;
+		rgbNE = textureLod(source_color, vec3(uv_interp + vec2(0.5, -0.5) * params.pixel_size, ViewIndex), 0.0).xyz * exposure * params.luminance_multiplier;
+		rgbSW = textureLod(source_color, vec3(uv_interp + vec2(-0.5, 0.5) * params.pixel_size, ViewIndex), 0.0).xyz * exposure * params.luminance_multiplier;
+		rgbSE = textureLod(source_color, vec3(uv_interp + vec2(0.5, 0.5) * params.pixel_size, ViewIndex), 0.0).xyz * exposure * params.luminance_multiplier;
+	}
 #else
-	vec3 rgbNW = textureLod(source_color, uv_interp + vec2(-0.5, -0.5) * params.pixel_size, 0.0).xyz * exposure * params.luminance_multiplier;
-	vec3 rgbNE = textureLod(source_color, uv_interp + vec2(0.5, -0.5) * params.pixel_size, 0.0).xyz * exposure * params.luminance_multiplier;
-	vec3 rgbSW = textureLod(source_color, uv_interp + vec2(-0.5, 0.5) * params.pixel_size, 0.0).xyz * exposure * params.luminance_multiplier;
-	vec3 rgbSE = textureLod(source_color, uv_interp + vec2(0.5, 0.5) * params.pixel_size, 0.0).xyz * exposure * params.luminance_multiplier;
+	if(params.use_chromatic_aberration){
+		rgbNW = apply_chromatic_aberration(source_color, uv_interp + vec2(-0.5, -0.5) * params.pixel_size, params.chromatic_aberration_strength).xyz * exposure * params.luminance_multiplier;
+		rgbNE = apply_chromatic_aberration(source_color, uv_interp + vec2(0.5, -0.5) * params.pixel_size, params.chromatic_aberration_strength).xyz * exposure * params.luminance_multiplier;
+		rgbSW = apply_chromatic_aberration(source_color, uv_interp + vec2(-0.5, 0.5) * params.pixel_size, params.chromatic_aberration_strength).xyz * exposure * params.luminance_multiplier;
+		rgbSE = apply_chromatic_aberration(source_color, uv_interp + vec2(0.5, 0.5) * params.pixel_size, params.chromatic_aberration_strength).xyz * exposure * params.luminance_multiplier;
+	}
+	else
+	{
+		rgbNW = textureLod(source_color, uv_interp + vec2(-0.5, -0.5) * params.pixel_size, 0.0).xyz * exposure * params.luminance_multiplier;
+		rgbNE = textureLod(source_color, uv_interp + vec2(0.5, -0.5) * params.pixel_size, 0.0).xyz * exposure * params.luminance_multiplier;
+		rgbSW = textureLod(source_color, uv_interp + vec2(-0.5, 0.5) * params.pixel_size, 0.0).xyz * exposure * params.luminance_multiplier;
+		rgbSE = textureLod(source_color, uv_interp + vec2(0.5, 0.5) * params.pixel_size, 0.0).xyz * exposure * params.luminance_multiplier;
+	}
 #endif
 	vec3 rgbM = color;
 	vec3 luma = vec3(0.299, 0.587, 0.114);
@@ -394,12 +453,27 @@ vec3 do_fxaa(vec3 color, float exposure, vec2 uv_interp) {
 						  dir * rcpDirMin)) *
 			params.pixel_size;
 
+	vec3 rgbA;
+	vec3 rgbB;
+
 #ifdef MULTIVIEW
-	vec3 rgbA = 0.5 * exposure * (textureLod(source_color, vec3(uv_interp + dir * (1.0 / 3.0 - 0.5), ViewIndex), 0.0).xyz + textureLod(source_color, vec3(uv_interp + dir * (2.0 / 3.0 - 0.5), ViewIndex), 0.0).xyz) * params.luminance_multiplier;
-	vec3 rgbB = rgbA * 0.5 + 0.25 * exposure * (textureLod(source_color, vec3(uv_interp + dir * -0.5, ViewIndex), 0.0).xyz + textureLod(source_color, vec3(uv_interp + dir * 0.5, ViewIndex), 0.0).xyz) * params.luminance_multiplier;
+if(params.use_chromatic_aberration){
+	rgbA = 0.5 * exposure * (apply_chromatic_aberration(source_color, vec3(uv_interp + dir * (1.0 / 3.0 - 0.5), ViewIndex), params.chromatic_aberration_strength).xyz + apply_chromatic_aberration(source_color, vec3(uv_interp + dir * (2.0 / 3.0 - 0.5), ViewIndex), params.chromatic_aberration_strength).xyz) * params.luminance_multiplier;
+	rgbB = rgbA * 0.5 + 0.25 * exposure * (apply_chromatic_aberration(source_color, vec3(uv_interp + dir * -0.5, ViewIndex), params.chromatic_aberration_strength).xyz + apply_chromatic_aberration(source_color, vec3(uv_interp + dir * 0.5, ViewIndex), params.chromatic_aberration_strength).xyz) * params.luminance_multiplier;
+}
+else{
+	rgbA = 0.5 * exposure * (textureLod(source_color, vec3(uv_interp + dir * (1.0 / 3.0 - 0.5), ViewIndex), 0.0).xyz + textureLod(source_color, vec3(uv_interp + dir * (2.0 / 3.0 - 0.5), ViewIndex), 0.0).xyz) * params.luminance_multiplier;
+	rgbB = rgbA * 0.5 + 0.25 * exposure * (textureLod(source_color, vec3(uv_interp + dir * -0.5, ViewIndex), 0.0).xyz + textureLod(source_color, vec3(uv_interp + dir * 0.5, ViewIndex), 0.0).xyz) * params.luminance_multiplier;
+}
 #else
-	vec3 rgbA = 0.5 * exposure * (textureLod(source_color, uv_interp + dir * (1.0 / 3.0 - 0.5), 0.0).xyz + textureLod(source_color, uv_interp + dir * (2.0 / 3.0 - 0.5), 0.0).xyz) * params.luminance_multiplier;
-	vec3 rgbB = rgbA * 0.5 + 0.25 * exposure * (textureLod(source_color, uv_interp + dir * -0.5, 0.0).xyz + textureLod(source_color, uv_interp + dir * 0.5, 0.0).xyz) * params.luminance_multiplier;
+if(params.use_chromatic_aberration){
+	rgbA = 0.5 * exposure * (apply_chromatic_aberration(source_color, uv_interp + dir * (1.0 / 3.0 - 0.5), params.chromatic_aberration_strength).xyz + apply_chromatic_aberration(source_color, uv_interp + dir * (2.0 / 3.0 - 0.5), params.chromatic_aberration_strength).xyz) * params.luminance_multiplier;
+	rgbB = rgbA * 0.5 + 0.25 * exposure * (apply_chromatic_aberration(source_color, uv_interp + dir * -0.5, params.chromatic_aberration_strength).xyz + apply_chromatic_aberration(source_color, uv_interp + dir * 0.5, params.chromatic_aberration_strength).xyz) * params.luminance_multiplier;
+}
+else{
+	rgbA = 0.5 * exposure * (textureLod(source_color, uv_interp + dir * (1.0 / 3.0 - 0.5), 0.0).xyz + textureLod(source_color, uv_interp + dir * (2.0 / 3.0 - 0.5), 0.0).xyz) * params.luminance_multiplier;
+	rgbB = rgbA * 0.5 + 0.25 * exposure * (textureLod(source_color, uv_interp + dir * -0.5, 0.0).xyz + textureLod(source_color, uv_interp + dir * 0.5, 0.0).xyz) * params.luminance_multiplier;
+}
 #endif
 
 	float lumaB = dot(rgbB, luma);
@@ -423,17 +497,29 @@ vec3 screen_space_dither(vec2 frag_coord) {
 	return (dither.rgb - 0.5) / 255.0;
 }
 
+
 void main() {
 #ifdef SUBPASS
 	// SUBPASS and MULTIVIEW can be combined but in that case we're already reading from the correct layer
 	vec4 color = subpassLoad(input_color);
 #elif defined(MULTIVIEW)
-	vec4 color = textureLod(source_color, vec3(uv_interp, ViewIndex), 0.0f);
+	vec4 color;
+	if(params.use_chromatic_aberration) {
+		color = apply_chromatic_aberration(source_color, uv_interp, ViewIndex, params.chromatic_aberration_strength);
+	}
+	else {
+		color = textureLod(source_color, vec3(uv_interp, ViewIndex), 0.0f);
+	}
 #else
-	vec4 color = textureLod(source_color, uv_interp, 0.0f);
+	vec4 color;
+	if(params.use_chromatic_aberration) {
+		color = apply_chromatic_aberration(source_color, uv_interp, params.chromatic_aberration_strength);
+	}
+	else {
+		color = textureLod(source_color, uv_interp, 0.0f);
+	}
 #endif
 	color.rgb *= params.luminance_multiplier;
-
 	// Exposure
 
 	float exposure = params.exposure;
@@ -450,7 +536,7 @@ void main() {
 #ifndef SUBPASS
 	if (params.use_fxaa) {
 		// FXAA must be performed before glow to preserve the "bleed" effect of glow.
-		color.rgb = do_fxaa(color.rgb, exposure, uv_interp);
+		color.rgb = do_fxaa(color.rgb, exposure, uv_interp); // THIS
 	}
 
 	if (params.use_glow && params.glow_mode == GLOW_MODE_MIX) {
@@ -483,6 +569,7 @@ void main() {
 #endif
 
 	// Additional effects
+
 
 	if (params.use_bcs) {
 		color.rgb = apply_bcs(color.rgb, params.bcs);
