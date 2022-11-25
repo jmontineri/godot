@@ -51,7 +51,7 @@ Files extracted from upstream source:
 ## cvtt
 
 - Upstream: https://github.com/elasota/ConvectionKernels
-- Version: git (dc2dbbe0ae2cf2be06ef56d1021e2222a56c7fe2, 2021)
+- Version: git (350416daa4e98f1c17ffc273b134d0120a2ef230, 2022)
 - License: MIT
 
 Files extracted from upstream source:
@@ -74,7 +74,7 @@ Files extracted from upstream source:
 ## embree
 
 - Upstream: https://github.com/embree/embree
-- Version: 3.13.1 (12b99393438a4cc9e478e33459eed78bec6233fd, 2021)
+- Version: 3.13.5 (698442324ccddd11725fb8875275dc1384f7fb40, 2022)
 - License: Apache 2.0
 
 Files extracted from upstream:
@@ -171,6 +171,23 @@ Some changes have been made in order to prevent LTO from removing code.
 They are marked with `// -- GODOT start --` and `// -- GODOT end --`
 comments. Apply the patches in the `patches/` folder when syncing on newer upstream
 commits.
+
+
+## glad
+
+- Upstream: https://github.com/Dav1dde/glad
+- Version: 2.0.2 (f237a2bfcec0d9b82b90ec9af4af265c40de7183, 2022)
+- License: CC0 1.0 and Apache 2.0
+
+Files extracted from upstream source:
+- `LICENSE`
+
+Files generated from [upstream web instance](https://gen.glad.sh/):
+- `KHR/khrplatform.h`
+- `gl.c`
+- `glad/gl.h`
+- `glx.c`
+- `glad/glx.h`
 
 
 ## glslang
@@ -290,17 +307,14 @@ Files extracted from upstream source:
 ## libtheora
 
 - Upstream: https://www.theora.org
-- Version: 1.1.1 (2010)
+- Version: git (7180717276af1ebc7da15c83162d6c5d6203aabf, 2020)
 - License: BSD-3-Clause
 
 Files extracted from upstream source:
 
-- all .c, .h in lib/
+- all .c, .h in lib/, except arm/ and c64x/ folders
 - all .h files in include/theora/ as theora/
 - COPYING and LICENSE
-
-Upstream patches included in the `patches` directory have been applied
-on top of the 1.1.1 source (not included in any stable release yet).
 
 
 ## libvorbis

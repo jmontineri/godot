@@ -41,6 +41,8 @@
 
 using namespace godot;
 
+#define GLOBAL_GET(m_var) ProjectSettings::get_singleton()->get(m_var)
+
 #else
 // Headers for building as built-in module.
 
@@ -50,7 +52,7 @@ using namespace godot;
 #include "core/string/print_string.h"
 #include "core/string/translation.h"
 
-#include "modules/modules_enabled.gen.h" // For freetype, msdfgen.
+#include "modules/modules_enabled.gen.h" // For freetype, msdfgen, svg.
 
 #endif
 
@@ -67,6 +69,10 @@ using namespace godot;
 #include "core/contour-combiners.h"
 #include "core/edge-selectors.h"
 #include "msdfgen.h"
+#endif
+
+#ifdef MODULE_SVG_ENABLED
+#include "thorvg_svg_in_ot.h"
 #endif
 
 /*************************************************************************/
@@ -1346,6 +1352,9 @@ _FORCE_INLINE_ bool TextServerAdvanced::_ensure_cache_for_size(FontAdvanced *p_f
 				memdelete(fd);
 				ERR_FAIL_V_MSG(false, "FreeType: Error initializing library: '" + String(FT_Error_String(error)) + "'.");
 			}
+#ifdef MODULE_SVG_ENABLED
+			FT_Property_Set(ft_library, "ot-svg", "svg-hooks", get_tvg_svg_in_ot_hooks());
+#endif
 		}
 
 		memset(&fd->stream, 0, sizeof(FT_StreamRec));
@@ -1888,6 +1897,9 @@ int64_t TextServerAdvanced::_font_get_face_count(const RID &p_font_rid) const {
 		if (!ft_library) {
 			error = FT_Init_FreeType(&ft_library);
 			ERR_FAIL_COND_V_MSG(error != 0, false, "FreeType: Error initializing library: '" + String(FT_Error_String(error)) + "'.");
+#ifdef MODULE_SVG_ENABLED
+			FT_Property_Set(ft_library, "ot-svg", "svg-hooks", get_tvg_svg_in_ot_hooks());
+#endif
 		}
 
 		FT_StreamRec stream;
@@ -4738,7 +4750,10 @@ bool TextServerAdvanced::_shaped_text_update_breaks(const RID &p_shaped) {
 			i += (sd_glyphs[i].count - 1);
 		}
 	}
-	ERR_FAIL_COND_V_MSG(sd_shift != sd->break_inserts, false, "Invalid break insert count!");
+	if (sd_shift < sd->break_inserts) {
+		// Note: should not happen with a normal text, but might be a case with special fonts that substitute a long string (with breaks opportunities in it) with a single glyph (like Font Awesome).
+		glyphs_new.resize(sd->glyphs.size() + sd_shift);
+	}
 
 	if (sd->break_inserts > 0) {
 		sd->glyphs = glyphs_new;

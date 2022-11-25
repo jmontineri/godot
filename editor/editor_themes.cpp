@@ -240,7 +240,8 @@ static Ref<ImageTexture> editor_generate_icon(int p_index, float p_scale, float 
 	// with integer editor scales.
 	const bool upsample = !Math::is_equal_approx(Math::round(p_scale), p_scale);
 	ImageLoaderSVG img_loader;
-	img_loader.create_image_from_string(img, editor_icons_sources[p_index], p_scale, upsample, p_convert_colors);
+	Error err = img_loader.create_image_from_string(img, editor_icons_sources[p_index], p_scale, upsample, p_convert_colors);
+	ERR_FAIL_COND_V_MSG(err != OK, Ref<ImageTexture>(), "Failed generating icon, unsupported or invalid SVG data in editor theme.");
 	if (p_saturation != 1.0) {
 		img->adjust_bcs(1.0, 1.0, p_saturation);
 	}
@@ -1491,6 +1492,11 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	theme->set_stylebox("normal", "RichTextLabel", style_tree_bg);
 
 	// Editor help.
+	Ref<StyleBoxFlat> style_editor_help = style_default->duplicate();
+	style_editor_help->set_bg_color(dark_color_2);
+	style_editor_help->set_border_color(dark_color_3);
+	theme->set_stylebox("background", "EditorHelp", style_editor_help);
+
 	theme->set_color("title_color", "EditorHelp", accent_color);
 	theme->set_color("headline_color", "EditorHelp", mono_color);
 	theme->set_color("text_color", "EditorHelp", font_color);
@@ -1503,9 +1509,14 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	theme->set_color("link_color", "EditorHelp", accent_color.lerp(mono_color, 0.8));
 	theme->set_color("code_color", "EditorHelp", accent_color.lerp(mono_color, 0.6));
 	theme->set_color("kbd_color", "EditorHelp", accent_color.lerp(property_color, 0.6));
+	theme->set_color("code_bg_color", "EditorHelp", dark_color_3);
+	theme->set_color("kbd_bg_color", "EditorHelp", dark_color_1);
+	theme->set_color("param_bg_color", "EditorHelp", dark_color_1);
 	theme->set_constant("line_separation", "EditorHelp", Math::round(6 * EDSCALE));
 	theme->set_constant("table_h_separation", "EditorHelp", 16 * EDSCALE);
 	theme->set_constant("table_v_separation", "EditorHelp", 6 * EDSCALE);
+	theme->set_constant("text_highlight_h_padding", "EditorHelp", 1 * EDSCALE);
+	theme->set_constant("text_highlight_v_padding", "EditorHelp", 2 * EDSCALE);
 
 	// Panel
 	theme->set_stylebox("panel", "Panel", make_flat_stylebox(dark_color_1, 6, 4, 6, 4, corner_width));
