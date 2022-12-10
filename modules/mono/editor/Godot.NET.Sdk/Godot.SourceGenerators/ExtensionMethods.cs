@@ -149,13 +149,6 @@ namespace Godot.SourceGenerators
             };
         }
 
-        private static SymbolDisplayFormat FullyQualifiedFormatOmitGlobal { get; } =
-            SymbolDisplayFormat.FullyQualifiedFormat
-                .WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted);
-
-        public static string FullQualifiedName(this ITypeSymbol symbol)
-            => symbol.ToDisplayString(NullableFlowState.NotNull, FullyQualifiedFormatOmitGlobal);
-
         public static string NameWithTypeParameters(this INamedTypeSymbol symbol)
         {
             return symbol.IsGenericType ?
@@ -163,25 +156,39 @@ namespace Godot.SourceGenerators
                 symbol.Name;
         }
 
-        public static string FullQualifiedName(this INamespaceSymbol namespaceSymbol)
+        private static SymbolDisplayFormat FullyQualifiedFormatOmitGlobal { get; } =
+            SymbolDisplayFormat.FullyQualifiedFormat
+                .WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted);
+
+        private static SymbolDisplayFormat FullyQualifiedFormatIncludeGlobal { get; } =
+            SymbolDisplayFormat.FullyQualifiedFormat
+                .WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Included);
+
+        public static string FullQualifiedNameOmitGlobal(this ITypeSymbol symbol)
+            => symbol.ToDisplayString(NullableFlowState.NotNull, FullyQualifiedFormatOmitGlobal);
+
+        public static string FullQualifiedNameOmitGlobal(this INamespaceSymbol namespaceSymbol)
             => namespaceSymbol.ToDisplayString(FullyQualifiedFormatOmitGlobal);
 
-        public static string FullQualifiedName(this ISymbol symbol)
-            => symbol.ToDisplayString(FullyQualifiedFormatOmitGlobal);
+        public static string FullQualifiedNameIncludeGlobal(this ITypeSymbol symbol)
+            => symbol.ToDisplayString(NullableFlowState.NotNull, FullyQualifiedFormatIncludeGlobal);
+
+        public static string FullQualifiedNameIncludeGlobal(this INamespaceSymbol namespaceSymbol)
+            => namespaceSymbol.ToDisplayString(FullyQualifiedFormatIncludeGlobal);
 
         public static string FullQualifiedSyntax(this SyntaxNode node, SemanticModel sm)
         {
             StringBuilder sb = new();
-            FullQualifiedSyntax_(node, sm, sb, true);
+            FullQualifiedSyntax(node, sm, sb, true);
             return sb.ToString();
         }
 
-        private static void FullQualifiedSyntax_(SyntaxNode node, SemanticModel sm, StringBuilder sb, bool isFirstNode)
+        private static void FullQualifiedSyntax(SyntaxNode node, SemanticModel sm, StringBuilder sb, bool isFirstNode)
         {
             if (node is NameSyntax ns && isFirstNode)
             {
                 SymbolInfo nameInfo = sm.GetSymbolInfo(ns);
-                sb.Append(nameInfo.Symbol?.FullQualifiedName() ?? ns.ToString());
+                sb.Append(nameInfo.Symbol?.ToDisplayString(FullyQualifiedFormatIncludeGlobal) ?? ns.ToString());
                 return;
             }
 
@@ -195,7 +202,7 @@ namespace Godot.SourceGenerators
 
                 if (child.IsNode)
                 {
-                    FullQualifiedSyntax_(child.AsNode()!, sm, sb, isFirstNode: innerIsFirstNode);
+                    FullQualifiedSyntax(child.AsNode()!, sm, sb, isFirstNode: innerIsFirstNode);
                     innerIsFirstNode = false;
                 }
                 else
@@ -261,8 +268,9 @@ namespace Godot.SourceGenerators
             if (parameters.Length > paramTypes.Length)
                 return null; // Ignore incompatible method
 
-            return new GodotMethodData(method, paramTypes, parameters
-                .Select(p => p.Type).ToImmutableArray(), retType, retSymbol);
+            return new GodotMethodData(method, paramTypes,
+                parameters.Select(p => p.Type).ToImmutableArray(),
+                retType != null ? (retType.Value, retSymbol) : null);
         }
 
         public static IEnumerable<GodotMethodData> WhereHasGodotCompatibleSignature(
@@ -323,10 +331,10 @@ namespace Godot.SourceGenerators
 
         public static string Path(this Location location)
             => location.SourceTree?.GetLineSpan(location.SourceSpan).Path
-            ?? location.GetLineSpan().Path;
+               ?? location.GetLineSpan().Path;
 
         public static int StartLine(this Location location)
             => location.SourceTree?.GetLineSpan(location.SourceSpan).StartLinePosition.Line
-            ?? location.GetLineSpan().StartLinePosition.Line;
+               ?? location.GetLineSpan().StartLinePosition.Line;
     }
 }

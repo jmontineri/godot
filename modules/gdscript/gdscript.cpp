@@ -478,7 +478,7 @@ void GDScript::_clear_doc() {
 void GDScript::_update_doc() {
 	_clear_doc();
 
-	doc.script_path = "\"" + get_path().get_slice("://", 1) + "\"";
+	doc.script_path = vformat(R"("%s")", get_script_path().get_slice("://", 1));
 	if (!name.is_empty()) {
 		doc.name = name;
 	} else {
@@ -801,9 +801,9 @@ void GDScript::update_exports() {
 
 String GDScript::_get_debug_path() const {
 	if (is_built_in() && !get_name().is_empty()) {
-		return get_name() + " (" + get_path() + ")";
+		return vformat("%s(%s)", get_name(), get_script_path());
 	} else {
-		return get_path();
+		return get_script_path();
 	}
 }
 
@@ -904,7 +904,7 @@ Error GDScript::reload(bool p_keep_state) {
 	for (const GDScriptWarning &warning : parser.get_warnings()) {
 		if (EngineDebugger::is_active()) {
 			Vector<ScriptLanguage::StackInfo> si;
-			EngineDebugger::get_script_debugger()->send_error("", get_path(), warning.start_line, warning.get_name(), warning.get_message(), false, ERR_HANDLER_WARNING, si);
+			EngineDebugger::get_script_debugger()->send_error("", get_script_path(), warning.start_line, warning.get_name(), warning.get_message(), false, ERR_HANDLER_WARNING, si);
 		}
 	}
 #endif
@@ -1025,6 +1025,10 @@ void GDScript::set_path(const String &p_path, bool p_take_over) {
 	for (KeyValue<StringName, Ref<GDScript>> &kv : subclasses) {
 		kv.value->set_path(p_path, p_take_over);
 	}
+}
+
+String GDScript::get_script_path() const {
+	return path;
 }
 
 Error GDScript::load_source_code(const String &p_path) {
@@ -2019,6 +2023,42 @@ Error GDScriptLanguage::execute_file(const String &p_path) {
 }
 
 void GDScriptLanguage::finish() {
+	if (_call_stack) {
+		memdelete_arr(_call_stack);
+		_call_stack = nullptr;
+	}
+
+	// Clear the cache before parsing the script_list
+	GDScriptCache::clear();
+
+	// Clear dependencies between scripts, to ensure cyclic references are broken
+	// (to avoid leaks at exit).
+	SelfList<GDScript> *s = script_list.first();
+	while (s) {
+		// This ensures the current script is not released before we can check
+		// what's the next one in the list (we can't get the next upfront because we
+		// don't know if the reference breaking will cause it -or any other after
+		// it, for that matter- to be released so the next one is not the same as
+		// before).
+		Ref<GDScript> scr = s->self();
+		if (scr.is_valid()) {
+			for (KeyValue<StringName, GDScriptFunction *> &E : scr->member_functions) {
+				GDScriptFunction *func = E.value;
+				for (int i = 0; i < func->argument_types.size(); i++) {
+					func->argument_types.write[i].script_type_ref = Ref<Script>();
+				}
+				func->return_type.script_type_ref = Ref<Script>();
+			}
+			for (KeyValue<StringName, GDScript::MemberInfo> &E : scr->member_indices) {
+				E.value.data_type.script_type_ref = Ref<Script>();
+			}
+
+			// Clear backup for scripts that could slip out of the cyclic reference
+			// check
+			scr->clear();
+		}
+		s = s->next();
+	}
 }
 
 void GDScriptLanguage::profiling_start() {
@@ -2128,7 +2168,8 @@ void GDScriptLanguage::reload_all_scripts() {
 
 		SelfList<GDScript> *elem = script_list.first();
 		while (elem) {
-			if (elem->self()->get_path().is_resource_file()) {
+			// Scripts will reload all subclasses, so only reload root scripts.
+			if (elem->self()->is_root_script() && elem->self()->get_path().is_resource_file()) {
 				print_verbose("GDScript: Found: " + elem->self()->get_path());
 				scripts.push_back(Ref<GDScript>(elem->self())); //cast to gdscript to avoid being erased by accident
 			}
@@ -2157,7 +2198,8 @@ void GDScriptLanguage::reload_tool_script(const Ref<Script> &p_script, bool p_so
 
 		SelfList<GDScript> *elem = script_list.first();
 		while (elem) {
-			if (elem->self()->get_path().is_resource_file()) {
+			// Scripts will reload all subclasses, so only reload root scripts.
+			if (elem->self()->is_root_script() && elem->self()->get_path().is_resource_file()) {
 				scripts.push_back(Ref<GDScript>(elem->self())); //cast to gdscript to avoid being erased by accident
 			}
 			elem = elem->next();
@@ -2530,36 +2572,6 @@ GDScriptLanguage::GDScriptLanguage() {
 }
 
 GDScriptLanguage::~GDScriptLanguage() {
-	if (_call_stack) {
-		memdelete_arr(_call_stack);
-	}
-
-	// Clear dependencies between scripts, to ensure cyclic references are broken (to avoid leaks at exit).
-	SelfList<GDScript> *s = script_list.first();
-	while (s) {
-		// This ensures the current script is not released before we can check what's the next one
-		// in the list (we can't get the next upfront because we don't know if the reference breaking
-		// will cause it -or any other after it, for that matter- to be released so the next one
-		// is not the same as before).
-		Ref<GDScript> scr = s->self();
-		if (scr.is_valid()) {
-			for (KeyValue<StringName, GDScriptFunction *> &E : scr->member_functions) {
-				GDScriptFunction *func = E.value;
-				for (int i = 0; i < func->argument_types.size(); i++) {
-					func->argument_types.write[i].script_type_ref = Ref<Script>();
-				}
-				func->return_type.script_type_ref = Ref<Script>();
-			}
-			for (KeyValue<StringName, GDScript::MemberInfo> &E : scr->member_indices) {
-				E.value.data_type.script_type_ref = Ref<Script>();
-			}
-
-			// Clear backup for scripts that could slip out of the cyclic reference check
-			scr->clear();
-		}
-		s = s->next();
-	}
-
 	singleton = nullptr;
 }
 

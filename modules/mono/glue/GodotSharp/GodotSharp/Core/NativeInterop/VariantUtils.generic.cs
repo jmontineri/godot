@@ -4,9 +4,11 @@ using System.Runtime.CompilerServices;
 
 namespace Godot.NativeInterop;
 
+#nullable enable
+
 public partial class VariantUtils
 {
-    private static Exception UnsupportedType<T>() => throw new InvalidOperationException(
+    private static Exception UnsupportedType<T>() => new InvalidOperationException(
         $"The type is not supported for conversion to/from Variant: '{typeof(T).FullName}'");
 
     internal static class GenericConversion<T>
