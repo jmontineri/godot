@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  gdscript_warning.cpp                                                 */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  gdscript_warning.cpp                                                  */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "gdscript_warning.h"
 
@@ -79,10 +79,6 @@ String GDScriptWarning::get_message() const {
 		} break;
 		case STANDALONE_EXPRESSION: {
 			return "Standalone expression (the line has no effect).";
-		} break;
-		case VOID_ASSIGNMENT: {
-			CHECK_SYMBOLS(1);
-			return "Assignment operation, but the function '" + symbols[0] + "()' returns void.";
 		} break;
 		case NARROWING_CONVERSION: {
 			return "Narrowing conversion (float is converted to int and loses precision).";
@@ -152,12 +148,20 @@ String GDScriptWarning::get_message() const {
 			CHECK_SYMBOLS(3);
 			return vformat(R"(The %s '%s' has the same name as a %s.)", symbols[0], symbols[1], symbols[2]);
 		}
-		case INT_ASSIGNED_TO_ENUM: {
+		case INT_AS_ENUM_WITHOUT_CAST: {
 			return "Integer used when an enum value is expected. If this is intended cast the integer to the enum type.";
 		}
+		case INT_AS_ENUM_WITHOUT_MATCH: {
+			CHECK_SYMBOLS(3);
+			return vformat(R"(Cannot %s %s as Enum "%s": no enum member has matching value.)", symbols[0], symbols[1], symbols[2]);
+		} break;
 		case STATIC_CALLED_ON_INSTANCE: {
 			CHECK_SYMBOLS(2);
 			return vformat(R"(The function '%s()' is a static function but was called from an instance. Instead, it should be directly called from the type: '%s.%s()'.)", symbols[0], symbols[1], symbols[0]);
+		}
+		case CONFUSABLE_IDENTIFIER: {
+			CHECK_SYMBOLS(1);
+			return vformat(R"(The identifier "%s" has misleading characters and might be confused with something else.)", symbols[0]);
 		}
 		case WARNING_MAX:
 			break; // Can't happen, but silences warning
@@ -202,7 +206,6 @@ String GDScriptWarning::get_name_from_code(Code p_code) {
 		"UNREACHABLE_CODE",
 		"UNREACHABLE_PATTERN",
 		"STANDALONE_EXPRESSION",
-		"VOID_ASSIGNMENT",
 		"NARROWING_CONVERSION",
 		"INCOMPATIBLE_TERNARY",
 		"UNUSED_SIGNAL",
@@ -222,8 +225,10 @@ String GDScriptWarning::get_name_from_code(Code p_code) {
 		"REDUNDANT_AWAIT",
 		"EMPTY_FILE",
 		"SHADOWED_GLOBAL_IDENTIFIER",
-		"INT_ASSIGNED_TO_ENUM",
+		"INT_AS_ENUM_WITHOUT_CAST",
+		"INT_AS_ENUM_WITHOUT_MATCH",
 		"STATIC_CALLED_ON_INSTANCE",
+		"CONFUSABLE_IDENTIFIER",
 	};
 
 	static_assert((sizeof(names) / sizeof(*names)) == WARNING_MAX, "Amount of warning types don't match the amount of warning names.");

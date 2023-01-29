@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  csharp_script.cpp                                                    */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  csharp_script.cpp                                                     */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "csharp_script.h"
 
@@ -60,6 +60,7 @@
 #include "mono_gd/gd_mono_cache.h"
 #include "signal_awaiter_utils.h"
 #include "utils/macros.h"
+#include "utils/naming_utils.h"
 #include "utils/string_utils.h"
 
 #define CACHED_STRING_NAME(m_var) (CSharpLanguage::get_singleton()->get_string_names().m_var)
@@ -111,6 +112,11 @@ void CSharpLanguage::init() {
 	// may be missing if the glue wasn't generated yet in order to build them.
 	List<String> cmdline_args = OS::get_singleton()->get_cmdline_args();
 	BindingsGenerator::handle_cmdline_args(cmdline_args);
+#endif
+
+	GLOBAL_DEF("dotnet/project/assembly_name", "");
+#ifdef TOOLS_ENABLED
+	GLOBAL_DEF("dotnet/project/solution_directory", "");
 #endif
 
 	gdmono = memnew(GDMono);
@@ -328,7 +334,7 @@ void CSharpLanguage::get_string_delimiters(List<String> *p_delimiters) const {
 }
 
 static String get_base_class_name(const String &p_base_class_name, const String p_class_name) {
-	String base_class = p_base_class_name;
+	String base_class = pascal_to_pascal_case(p_base_class_name);
 	if (p_class_name == base_class) {
 		base_class = "Godot." + base_class;
 	}
@@ -389,17 +395,22 @@ bool CSharpLanguage::supports_builtin_mode() const {
 }
 
 #ifdef TOOLS_ENABLED
+struct VariantCsName {
+	Variant::Type variant_type;
+	const String cs_type;
+};
+
 static String variant_type_to_managed_name(const String &p_var_type_name) {
 	if (p_var_type_name.is_empty()) {
 		return "Variant";
 	}
 
 	if (ClassDB::class_exists(p_var_type_name)) {
-		return p_var_type_name;
+		return pascal_to_pascal_case(p_var_type_name);
 	}
 
 	if (p_var_type_name == Variant::get_type_name(Variant::OBJECT)) {
-		return "Godot.Object";
+		return "GodotObject";
 	}
 
 	if (p_var_type_name == Variant::get_type_name(Variant::INT)) {
@@ -451,37 +462,37 @@ static String variant_type_to_managed_name(const String &p_var_type_name) {
 	}
 
 	if (p_var_type_name == Variant::get_type_name(Variant::SIGNAL)) {
-		return "SignalInfo";
+		return "Signal";
 	}
 
-	Variant::Type var_types[] = {
-		Variant::BOOL,
-		Variant::INT,
-		Variant::VECTOR2,
-		Variant::VECTOR2I,
-		Variant::RECT2,
-		Variant::RECT2I,
-		Variant::VECTOR3,
-		Variant::VECTOR3I,
-		Variant::TRANSFORM2D,
-		Variant::VECTOR4,
-		Variant::VECTOR4I,
-		Variant::PLANE,
-		Variant::QUATERNION,
-		Variant::AABB,
-		Variant::BASIS,
-		Variant::TRANSFORM3D,
-		Variant::PROJECTION,
-		Variant::COLOR,
-		Variant::STRING_NAME,
-		Variant::NODE_PATH,
-		Variant::RID,
-		Variant::CALLABLE
+	const VariantCsName var_types[] = {
+		{ Variant::BOOL, "bool" },
+		{ Variant::INT, "long" },
+		{ Variant::VECTOR2, "Vector2" },
+		{ Variant::VECTOR2I, "Vector2I" },
+		{ Variant::RECT2, "Rect2" },
+		{ Variant::RECT2I, "Rect2I" },
+		{ Variant::VECTOR3, "Vector3" },
+		{ Variant::VECTOR3I, "Vector3I" },
+		{ Variant::TRANSFORM2D, "Transform2D" },
+		{ Variant::VECTOR4, "Vector4" },
+		{ Variant::VECTOR4I, "Vector4I" },
+		{ Variant::PLANE, "Plane" },
+		{ Variant::QUATERNION, "Quaternion" },
+		{ Variant::AABB, "Aabb" },
+		{ Variant::BASIS, "Basis" },
+		{ Variant::TRANSFORM3D, "Transform3D" },
+		{ Variant::PROJECTION, "Projection" },
+		{ Variant::COLOR, "Color" },
+		{ Variant::STRING_NAME, "StringName" },
+		{ Variant::NODE_PATH, "NodePath" },
+		{ Variant::RID, "Rid" },
+		{ Variant::CALLABLE, "Callable" },
 	};
 
-	for (unsigned int i = 0; i < sizeof(var_types) / sizeof(Variant::Type); i++) {
-		if (p_var_type_name == Variant::get_type_name(var_types[i])) {
-			return p_var_type_name;
+	for (unsigned int i = 0; i < sizeof(var_types) / sizeof(VariantCsName); i++) {
+		if (p_var_type_name == Variant::get_type_name(var_types[i].variant_type)) {
+			return var_types[i].cs_type;
 		}
 	}
 
@@ -688,7 +699,7 @@ bool CSharpLanguage::is_assembly_reloading_needed() {
 			return false; // Already up to date
 		}
 	} else {
-		String assembly_name = ProjectSettings::get_singleton()->get_setting("dotnet/project/assembly_name");
+		String assembly_name = GLOBAL_GET("dotnet/project/assembly_name");
 
 		if (assembly_name.is_empty()) {
 			assembly_name = ProjectSettings::get_singleton()->get_safe_project_name();
@@ -2599,6 +2610,10 @@ bool CSharpScript::inherits_script(const Ref<Script> &p_script) const {
 
 Ref<Script> CSharpScript::get_base_script() const {
 	return base_script;
+}
+
+StringName CSharpScript::get_global_name() const {
+	return StringName();
 }
 
 void CSharpScript::get_script_property_list(List<PropertyInfo> *r_list) const {

@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  window.cpp                                                           */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  window.cpp                                                            */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "window.h"
 
@@ -223,6 +223,14 @@ void Window::_get_property_list(List<PropertyInfo> *p_list) const {
 }
 
 void Window::_validate_property(PropertyInfo &p_property) const {
+	if (p_property.name == "position" && initial_position != WINDOW_INITIAL_POSITION_ABSOLUTE) {
+		p_property.usage = PROPERTY_USAGE_NONE;
+	}
+
+	if (p_property.name == "current_screen" && initial_position != WINDOW_INITIAL_POSITION_CENTER_OTHER_SCREEN) {
+		p_property.usage = PROPERTY_USAGE_NONE;
+	}
+
 	if (p_property.name == "theme_type_variation") {
 		List<StringName> names;
 
@@ -273,6 +281,15 @@ void Window::set_title(const String &p_title) {
 
 String Window::get_title() const {
 	return title;
+}
+
+void Window::set_initial_position(Window::WindowInitialPosition p_initial_position) {
+	initial_position = p_initial_position;
+	notify_property_list_changed();
+}
+
+Window::WindowInitialPosition Window::get_initial_position() const {
+	return initial_position;
 }
 
 void Window::set_current_screen(int p_screen) {
@@ -462,11 +479,21 @@ void Window::_make_window() {
 	}
 
 	DisplayServer::VSyncMode vsync_mode = DisplayServer::get_singleton()->window_get_vsync_mode(DisplayServer::MAIN_WINDOW_ID);
-	window_id = DisplayServer::get_singleton()->create_sub_window(DisplayServer::WindowMode(mode), vsync_mode, f, Rect2i(position, size));
+	Rect2i window_rect;
+	if (initial_position == WINDOW_INITIAL_POSITION_ABSOLUTE) {
+		window_rect = Rect2i(position, size);
+	} else if (initial_position == WINDOW_INITIAL_POSITION_CENTER_PRIMARY_SCREEN) {
+		window_rect = Rect2i(DisplayServer::get_singleton()->screen_get_position(DisplayServer::SCREEN_PRIMARY) + (DisplayServer::get_singleton()->screen_get_size(DisplayServer::SCREEN_PRIMARY) - size) / 2, size);
+	} else if (initial_position == WINDOW_INITIAL_POSITION_CENTER_MAIN_WINDOW_SCREEN) {
+		window_rect = Rect2i(DisplayServer::get_singleton()->screen_get_position(DisplayServer::SCREEN_OF_MAIN_WINDOW) + (DisplayServer::get_singleton()->screen_get_size(DisplayServer::SCREEN_OF_MAIN_WINDOW) - size) / 2, size);
+	} else if (initial_position == WINDOW_INITIAL_POSITION_CENTER_OTHER_SCREEN) {
+		window_rect = Rect2i(DisplayServer::get_singleton()->screen_get_position(current_screen) + (DisplayServer::get_singleton()->screen_get_size(current_screen) - size) / 2, size);
+	}
+	window_id = DisplayServer::get_singleton()->create_sub_window(DisplayServer::WindowMode(mode), vsync_mode, f, window_rect);
 	ERR_FAIL_COND(window_id == DisplayServer::INVALID_WINDOW_ID);
-	DisplayServer::get_singleton()->window_set_current_screen(current_screen, window_id);
 	DisplayServer::get_singleton()->window_set_max_size(Size2i(), window_id);
 	DisplayServer::get_singleton()->window_set_min_size(Size2i(), window_id);
+	DisplayServer::get_singleton()->window_set_mouse_passthrough(mpath, window_id);
 	String tr_title = atr(title);
 #ifdef DEBUG_ENABLED
 	if (window_id == DisplayServer::MAIN_WINDOW_ID) {
@@ -636,17 +663,17 @@ void Window::set_visible(bool p_visible) {
 		return;
 	}
 
-	visible = p_visible;
-
 	if (!is_inside_tree()) {
+		visible = p_visible;
 		return;
 	}
 
-	if (updating_child_controls) {
-		_update_child_controls();
-	}
-
 	ERR_FAIL_COND_MSG(get_parent() == nullptr, "Can't change visibility of main window.");
+
+	visible = p_visible;
+
+	// Stop any queued resizing, as the window will be resized right now.
+	updating_child_controls = false;
 
 	Viewport *embedder_vp = _get_embedder();
 
@@ -806,7 +833,7 @@ bool Window::is_visible() const {
 }
 
 void Window::_update_window_size() {
-	// Force window to respect size limitations of rendering server
+	// Force window to respect size limitations of rendering server.
 	RenderingServer *rendering_server = RenderingServer::get_singleton();
 	if (rendering_server) {
 		Size2i max_window_size = rendering_server->get_maximum_viewport_size();
@@ -1103,6 +1130,7 @@ void Window::_notification(int p_what) {
 
 		case NOTIFICATION_READY: {
 			if (wrap_controls) {
+				// Finish any resizing immediately so it doesn't interfere on stuff overriding _ready().
 				_update_child_controls();
 			}
 		} break;
@@ -1111,9 +1139,7 @@ void Window::_notification(int p_what) {
 			_invalidate_theme_cache();
 			_update_theme_item_cache();
 
-			if (embedder) {
-				embedder->_sub_window_update(this);
-			} else if (window_id != DisplayServer::INVALID_WINDOW_ID) {
+			if (!embedder && window_id != DisplayServer::INVALID_WINDOW_ID) {
 				String tr_title = atr(title);
 #ifdef DEBUG_ENABLED
 				if (window_id == DisplayServer::MAIN_WINDOW_ID) {
@@ -1125,8 +1151,6 @@ void Window::_notification(int p_what) {
 #endif
 				DisplayServer::get_singleton()->window_set_title(tr_title, window_id);
 			}
-
-			child_controls_changed();
 		} break;
 
 		case NOTIFICATION_EXIT_TREE: {
@@ -1213,10 +1237,27 @@ DisplayServer::WindowID Window::get_window_id() const {
 	return window_id;
 }
 
+void Window::set_mouse_passthrough_polygon(const Vector<Vector2> &p_region) {
+	mpath = p_region;
+	if (window_id == DisplayServer::INVALID_WINDOW_ID) {
+		return;
+	}
+	DisplayServer::get_singleton()->window_set_mouse_passthrough(mpath, window_id);
+}
+
+Vector<Vector2> Window::get_mouse_passthrough_polygon() const {
+	return mpath;
+}
+
 void Window::set_wrap_controls(bool p_enable) {
 	wrap_controls = p_enable;
-	if (wrap_controls) {
-		child_controls_changed();
+
+	if (!is_inside_tree()) {
+		return;
+	}
+
+	if (updating_child_controls) {
+		_update_child_controls();
 	} else {
 		_update_window_size();
 	}
@@ -1243,6 +1284,15 @@ Size2 Window::_get_contents_minimum_size() const {
 	return max;
 }
 
+void Window::child_controls_changed() {
+	if (!is_inside_tree() || !visible || updating_child_controls) {
+		return;
+	}
+
+	updating_child_controls = true;
+	call_deferred(SNAME("_update_child_controls"));
+}
+
 void Window::_update_child_controls() {
 	if (!updating_child_controls) {
 		return;
@@ -1251,15 +1301,6 @@ void Window::_update_child_controls() {
 	_update_window_size();
 
 	updating_child_controls = false;
-}
-
-void Window::child_controls_changed() {
-	if (!is_inside_tree() || !visible || updating_child_controls) {
-		return;
-	}
-
-	updating_child_controls = true;
-	call_deferred(SNAME("_update_child_controls"));
 }
 
 bool Window::_can_consume_input_events() const {
@@ -1608,7 +1649,24 @@ void Window::_invalidate_theme_cache() {
 void Window::_update_theme_item_cache() {
 	// Request an update on the next frame to reflect theme changes.
 	// Updating without a delay can cause a lot of lag.
-	child_controls_changed();
+	if (!wrap_controls) {
+		updating_embedded_window = true;
+		call_deferred(SNAME("_update_embedded_window"));
+	} else {
+		child_controls_changed();
+	}
+}
+
+void Window::_update_embedded_window() {
+	if (!updating_embedded_window) {
+		return;
+	}
+
+	if (embedder) {
+		embedder->_sub_window_update(this);
+	};
+
+	updating_embedded_window = false;
 }
 
 void Window::set_theme_type_variation(const StringName &p_theme_type) {
@@ -2065,9 +2123,25 @@ Transform2D Window::get_screen_transform() const {
 	return embedder_transform * Viewport::get_screen_transform();
 }
 
+Transform2D Window::get_popup_base_transform() const {
+	if (is_embedding_subwindows()) {
+		return Transform2D();
+	}
+	Transform2D window_transform;
+	window_transform.set_origin(get_position());
+	window_transform *= Viewport::get_screen_transform();
+	if (_get_embedder()) {
+		return _get_embedder()->get_popup_base_transform() * window_transform;
+	}
+	return window_transform;
+}
+
 void Window::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_title", "title"), &Window::set_title);
 	ClassDB::bind_method(D_METHOD("get_title"), &Window::get_title);
+
+	ClassDB::bind_method(D_METHOD("set_initial_position", "initial_position"), &Window::set_initial_position);
+	ClassDB::bind_method(D_METHOD("get_initial_position"), &Window::get_initial_position);
 
 	ClassDB::bind_method(D_METHOD("set_current_screen", "index"), &Window::set_current_screen);
 	ClassDB::bind_method(D_METHOD("get_current_screen"), &Window::get_current_screen);
@@ -2138,11 +2212,15 @@ void Window::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_use_font_oversampling", "enable"), &Window::set_use_font_oversampling);
 	ClassDB::bind_method(D_METHOD("is_using_font_oversampling"), &Window::is_using_font_oversampling);
 
+	ClassDB::bind_method(D_METHOD("set_mouse_passthrough_polygon", "polygon"), &Window::set_mouse_passthrough_polygon);
+	ClassDB::bind_method(D_METHOD("get_mouse_passthrough_polygon"), &Window::get_mouse_passthrough_polygon);
+
 	ClassDB::bind_method(D_METHOD("set_wrap_controls", "enable"), &Window::set_wrap_controls);
 	ClassDB::bind_method(D_METHOD("is_wrapping_controls"), &Window::is_wrapping_controls);
 	ClassDB::bind_method(D_METHOD("child_controls_changed"), &Window::child_controls_changed);
 
 	ClassDB::bind_method(D_METHOD("_update_child_controls"), &Window::_update_child_controls);
+	ClassDB::bind_method(D_METHOD("_update_embedded_window"), &Window::_update_embedded_window);
 
 	ClassDB::bind_method(D_METHOD("set_theme", "theme"), &Window::set_theme);
 	ClassDB::bind_method(D_METHOD("get_theme"), &Window::get_theme);
@@ -2205,11 +2283,16 @@ void Window::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("popup_centered", "minsize"), &Window::popup_centered, DEFVAL(Size2i()));
 	ClassDB::bind_method(D_METHOD("popup_centered_clamped", "minsize", "fallback_ratio"), &Window::popup_centered_clamped, DEFVAL(Size2i()), DEFVAL(0.75));
 
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "initial_position", PROPERTY_HINT_ENUM, "Absolute,Primary Screen Center,Main Window Screen Center,Other Screen Center"), "set_initial_position", "get_initial_position");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "title"), "set_title", "get_title");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "position", PROPERTY_HINT_NONE, "suffix:px"), "set_position", "get_position");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "size", PROPERTY_HINT_NONE, "suffix:px"), "set_size", "get_size");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mode", PROPERTY_HINT_ENUM, "Windowed,Minimized,Maximized,Fullscreen"), "set_mode", "get_mode");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "current_screen"), "set_current_screen", "get_current_screen");
+
+	// Keep the enum values in sync with the `DisplayServer::SCREEN_` enum.
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "current_screen", PROPERTY_HINT_RANGE, "0,64,1,or_greater"), "set_current_screen", "get_current_screen");
+
+	ADD_PROPERTY(PropertyInfo(Variant::PACKED_VECTOR2_ARRAY, "mouse_passthrough_polygon"), "set_mouse_passthrough_polygon", "get_mouse_passthrough_polygon");
 
 	ADD_GROUP("Flags", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "visible"), "set_visible", "is_visible");
@@ -2223,6 +2306,7 @@ void Window::_bind_methods() {
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "unfocusable"), "set_flag", "get_flag", FLAG_NO_FOCUS);
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "popup_window"), "set_flag", "get_flag", FLAG_POPUP);
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "extend_to_title"), "set_flag", "get_flag", FLAG_EXTEND_TO_TITLE);
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "mouse_passthrough"), "set_flag", "get_flag", FLAG_MOUSE_PASSTHROUGH);
 
 	ADD_GROUP("Limits", "");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "min_size", PROPERTY_HINT_NONE, "suffix:px"), "set_min_size", "get_min_size");
@@ -2270,6 +2354,7 @@ void Window::_bind_methods() {
 	BIND_ENUM_CONSTANT(FLAG_NO_FOCUS);
 	BIND_ENUM_CONSTANT(FLAG_POPUP);
 	BIND_ENUM_CONSTANT(FLAG_EXTEND_TO_TITLE);
+	BIND_ENUM_CONSTANT(FLAG_MOUSE_PASSTHROUGH);
 	BIND_ENUM_CONSTANT(FLAG_MAX);
 
 	BIND_ENUM_CONSTANT(CONTENT_SCALE_MODE_DISABLED);
@@ -2286,6 +2371,11 @@ void Window::_bind_methods() {
 	BIND_ENUM_CONSTANT(LAYOUT_DIRECTION_LOCALE);
 	BIND_ENUM_CONSTANT(LAYOUT_DIRECTION_LTR);
 	BIND_ENUM_CONSTANT(LAYOUT_DIRECTION_RTL);
+
+	BIND_ENUM_CONSTANT(WINDOW_INITIAL_POSITION_ABSOLUTE);
+	BIND_ENUM_CONSTANT(WINDOW_INITIAL_POSITION_CENTER_PRIMARY_SCREEN);
+	BIND_ENUM_CONSTANT(WINDOW_INITIAL_POSITION_CENTER_MAIN_WINDOW_SCREEN);
+	BIND_ENUM_CONSTANT(WINDOW_INITIAL_POSITION_CENTER_OTHER_SCREEN);
 }
 
 Window::Window() {

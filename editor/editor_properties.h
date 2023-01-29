@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  editor_properties.h                                                  */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  editor_properties.h                                                   */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef EDITOR_PROPERTIES_H
 #define EDITOR_PROPERTIES_H
@@ -121,7 +121,7 @@ class EditorPropertyTextEnum : public EditorProperty {
 	void _edit_custom_value();
 	void _custom_value_submitted(String p_value);
 	void _custom_value_accepted();
-	void _custom_value_cancelled();
+	void _custom_value_canceled();
 
 protected:
 	virtual void _set_read_only(bool p_read_only) override;
@@ -201,40 +201,6 @@ public:
 	void setup(const String &p_base_type, const String &p_selected_type);
 	virtual void update_property() override;
 	EditorPropertyClassName();
-};
-
-class EditorPropertyMember : public EditorProperty {
-	GDCLASS(EditorPropertyMember, EditorProperty);
-
-public:
-	enum Type {
-		MEMBER_METHOD_OF_VARIANT_TYPE, ///< a method of a type
-		MEMBER_METHOD_OF_BASE_TYPE, ///< a method of a base type
-		MEMBER_METHOD_OF_INSTANCE, ///< a method of an instance
-		MEMBER_METHOD_OF_SCRIPT, ///< a method of a script & base
-		MEMBER_PROPERTY_OF_VARIANT_TYPE, ///< a property of a type
-		MEMBER_PROPERTY_OF_BASE_TYPE, ///< a property of a base type
-		MEMBER_PROPERTY_OF_INSTANCE, ///< a property of an instance
-		MEMBER_PROPERTY_OF_SCRIPT, ///< a property of a script & base
-	};
-
-private:
-	Type hint;
-	PropertySelector *selector = nullptr;
-	Button *property = nullptr;
-	String hint_text;
-
-	void _property_selected(const String &p_selected);
-	void _property_select();
-
-protected:
-	virtual void _set_read_only(bool p_read_only) override;
-	static void _bind_methods();
-
-public:
-	void setup(Type p_hint, const String &p_hint_text);
-	virtual void update_property() override;
-	EditorPropertyMember();
 };
 
 class EditorPropertyCheck : public EditorProperty {
@@ -378,7 +344,7 @@ protected:
 
 public:
 	virtual void update_property() override;
-	void setup(int64_t p_min, int64_t p_max, int64_t p_step, bool p_allow_greater, bool p_allow_lesser, const String &p_suffix = String());
+	void setup(int64_t p_min, int64_t p_max, int64_t p_step, bool p_hide_slider, bool p_allow_greater, bool p_allow_lesser, const String &p_suffix = String());
 	EditorPropertyInteger();
 };
 
@@ -566,7 +532,7 @@ protected:
 
 public:
 	virtual void update_property() override;
-	void setup(int p_min, int p_max, bool p_hide_slider, bool p_link = false, const String &p_suffix = String());
+	void setup(int p_min, int p_max, bool p_link = false, const String &p_suffix = String());
 	EditorPropertyVector2i(bool p_force_wide = false);
 };
 
@@ -583,7 +549,7 @@ protected:
 
 public:
 	virtual void update_property() override;
-	void setup(int p_min, int p_max, bool p_hide_slider, const String &p_suffix = String());
+	void setup(int p_min, int p_max, const String &p_suffix = String());
 	EditorPropertyRect2i(bool p_force_wide = false);
 };
 
@@ -608,7 +574,7 @@ protected:
 
 public:
 	virtual void update_property() override;
-	void setup(int p_min, int p_max, bool p_hide_slider, bool p_link = false, const String &p_suffix = String());
+	void setup(int p_min, int p_max, bool p_link = false, const String &p_suffix = String());
 	EditorPropertyVector3i(bool p_force_wide = false);
 };
 
@@ -693,7 +659,7 @@ protected:
 
 public:
 	virtual void update_property() override;
-	void setup(double p_min, double p_max, bool p_hide_slider, const String &p_suffix = String());
+	void setup(double p_min, double p_max, const String &p_suffix = String());
 	EditorPropertyVector4i();
 };
 
@@ -868,13 +834,11 @@ class EditorPropertyResource : public EditorProperty {
 	void _sub_inspector_object_id_selected(int p_id);
 
 	void _open_editor_pressed();
-	void _fold_other_editors(Object *p_self);
 	void _update_property_bg();
 	void _update_preferred_shader();
 
 protected:
 	virtual void _set_read_only(bool p_read_only) override;
-	static void _bind_methods();
 	void _notification(int p_what);
 
 public:
@@ -886,6 +850,7 @@ public:
 	void expand_revertable() override;
 
 	void set_use_sub_inspector(bool p_enable);
+	void fold_resource();
 
 	EditorPropertyResource();
 };

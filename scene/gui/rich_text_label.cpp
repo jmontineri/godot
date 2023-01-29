@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  rich_text_label.cpp                                                  */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  rich_text_label.cpp                                                   */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "rich_text_label.h"
 
@@ -2778,7 +2778,7 @@ bool RichTextLabel::_validate_line_caches() {
 
 		main->first_resized_line.store(main->lines.size());
 
-		if (fit_content_height) {
+		if (fit_content) {
 			update_minimum_size();
 		}
 		return true;
@@ -2808,7 +2808,7 @@ void RichTextLabel::_process_line_caches() {
 
 	int ctrl_height = get_size().height;
 	int fi = main->first_invalid_line.load();
-	int total_chars = (fi == 0) ? 0 : (main->lines[fi].char_offset + main->lines[fi].char_count);
+	int total_chars = main->lines[fi].char_offset;
 
 	float total_height = (fi == 0) ? 0 : _calculate_line_vertical_offset(main->lines[fi - 1]);
 	for (int i = fi; i < (int)main->lines.size(); i++) {
@@ -2862,7 +2862,7 @@ void RichTextLabel::_process_line_caches() {
 	main->first_resized_line.store(main->lines.size());
 	main->first_invalid_font_line.store(main->lines.size());
 
-	if (fit_content_height) {
+	if (fit_content) {
 		update_minimum_size();
 	}
 	emit_signal(SNAME("finished"));
@@ -2963,7 +2963,7 @@ void RichTextLabel::_add_item(Item *p_item, bool p_enter, bool p_ensure_newline)
 
 	_invalidate_current_line(current_frame);
 
-	if (fixed_width != -1) {
+	if (fit_content) {
 		update_minimum_size();
 	}
 	queue_redraw();
@@ -3071,18 +3071,18 @@ void RichTextLabel::add_newline() {
 	queue_redraw();
 }
 
-bool RichTextLabel::remove_line(const int p_line) {
+bool RichTextLabel::remove_paragraph(const int p_paragraph) {
 	_stop_thread();
 	MutexLock data_lock(data_mutex);
 
-	if (p_line >= (int)current_frame->lines.size() || p_line < 0) {
+	if (p_paragraph >= (int)current_frame->lines.size() || p_paragraph < 0) {
 		return false;
 	}
 
 	// Remove all subitems with the same line as that provided.
 	Vector<int> subitem_indices_to_remove;
 	for (int i = 0; i < current->subitems.size(); i++) {
-		if (current->subitems[i]->line == p_line) {
+		if (current->subitems[i]->line == p_paragraph) {
 			subitem_indices_to_remove.push_back(i);
 		}
 	}
@@ -3092,17 +3092,17 @@ bool RichTextLabel::remove_line(const int p_line) {
 	for (int i = subitem_indices_to_remove.size() - 1; i >= 0; i--) {
 		int subitem_idx = subitem_indices_to_remove[i];
 		had_newline = had_newline || current->subitems[subitem_idx]->type == ITEM_NEWLINE;
-		_remove_item(current->subitems[subitem_idx], current->subitems[subitem_idx]->line, p_line);
+		_remove_item(current->subitems[subitem_idx], current->subitems[subitem_idx]->line, p_paragraph);
 	}
 
 	if (!had_newline) {
-		current_frame->lines.remove_at(p_line);
+		current_frame->lines.remove_at(p_paragraph);
 		if (current_frame->lines.size() == 0) {
 			current_frame->lines.resize(1);
 		}
 	}
 
-	if (p_line == 0 && current->subitems.size() > 0) {
+	if (p_paragraph == 0 && current->subitems.size() > 0) {
 		main->lines[0].from = main;
 	}
 
@@ -3182,7 +3182,8 @@ void RichTextLabel::push_normal() {
 void RichTextLabel::push_bold() {
 	ERR_FAIL_COND(theme_cache.bold_font.is_null());
 
-	_push_def_font(BOLD_FONT);
+	ItemFont *item_font = _find_font(current);
+	_push_def_font((item_font && item_font->def_font == ITALICS_FONT) ? BOLD_ITALICS_FONT : BOLD_FONT);
 }
 
 void RichTextLabel::push_bold_italics() {
@@ -3194,7 +3195,8 @@ void RichTextLabel::push_bold_italics() {
 void RichTextLabel::push_italics() {
 	ERR_FAIL_COND(theme_cache.italics_font.is_null());
 
-	_push_def_font(ITALICS_FONT);
+	ItemFont *item_font = _find_font(current);
+	_push_def_font((item_font && item_font->def_font == BOLD_FONT) ? BOLD_ITALICS_FONT : ITALICS_FONT);
 }
 
 void RichTextLabel::push_mono() {
@@ -3334,6 +3336,7 @@ void RichTextLabel::push_table(int p_columns, InlineAlignment p_alignment, int p
 	_stop_thread();
 	MutexLock data_lock(data_mutex);
 
+	ERR_FAIL_COND(current->type == ITEM_TABLE);
 	ERR_FAIL_COND(p_columns < 1);
 	ItemTable *item = memnew(ItemTable);
 
@@ -3432,6 +3435,8 @@ void RichTextLabel::push_customfx(Ref<RichTextEffect> p_custom_effect, Dictionar
 	item->custom_effect = p_custom_effect;
 	item->char_fx_transform->environment = p_environment;
 	_add_item(item, true);
+
+	set_process_internal(true);
 }
 
 void RichTextLabel::set_table_column_expand(int p_column, bool p_expand, int p_ratio) {
@@ -3548,7 +3553,7 @@ void RichTextLabel::clear() {
 		scroll_following = true;
 	}
 
-	if (fixed_width != -1) {
+	if (fit_content) {
 		update_minimum_size();
 	}
 }
@@ -3569,15 +3574,17 @@ int RichTextLabel::get_tab_size() const {
 	return tab_size;
 }
 
-void RichTextLabel::set_fit_content_height(bool p_enabled) {
-	if (p_enabled != fit_content_height) {
-		fit_content_height = p_enabled;
-		update_minimum_size();
+void RichTextLabel::set_fit_content(bool p_enabled) {
+	if (p_enabled == fit_content) {
+		return;
 	}
+
+	fit_content = p_enabled;
+	update_minimum_size();
 }
 
-bool RichTextLabel::is_fit_content_height_enabled() const {
-	return fit_content_height;
+bool RichTextLabel::is_fit_content_enabled() const {
+	return fit_content;
 }
 
 void RichTextLabel::set_meta_underline(bool p_underline) {
@@ -4071,8 +4078,8 @@ void RichTextLabel::append_text(const String &p_bbcode) {
 							st_parser_type = TextServer::STRUCTURED_TEXT_EMAIL;
 						} else if (subtag_a[1] == "l" || subtag_a[1] == "list") {
 							st_parser_type = TextServer::STRUCTURED_TEXT_LIST;
-						} else if (subtag_a[1] == "n" || subtag_a[1] == "none") {
-							st_parser_type = TextServer::STRUCTURED_TEXT_NONE;
+						} else if (subtag_a[1] == "n" || subtag_a[1] == "gdscript") {
+							st_parser_type = TextServer::STRUCTURED_TEXT_GDSCRIPT;
 						} else if (subtag_a[1] == "c" || subtag_a[1] == "custom") {
 							st_parser_type = TextServer::STRUCTURED_TEXT_CUSTOM;
 						}
@@ -4547,7 +4554,6 @@ void RichTextLabel::append_text(const String &p_bbcode) {
 					push_customfx(effect, properties);
 					pos = brk_end + 1;
 					tag_stack.push_front(identifier);
-					set_process_internal(true);
 				} else {
 					add_text("["); //ignore
 					pos = brk_pos + 1;
@@ -5313,7 +5319,7 @@ void RichTextLabel::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_text", "text"), &RichTextLabel::set_text);
 	ClassDB::bind_method(D_METHOD("add_image", "image", "width", "height", "color", "inline_align", "region"), &RichTextLabel::add_image, DEFVAL(0), DEFVAL(0), DEFVAL(Color(1.0, 1.0, 1.0)), DEFVAL(INLINE_ALIGNMENT_CENTER), DEFVAL(Rect2(0, 0, 0, 0)));
 	ClassDB::bind_method(D_METHOD("newline"), &RichTextLabel::add_newline);
-	ClassDB::bind_method(D_METHOD("remove_line", "line"), &RichTextLabel::remove_line);
+	ClassDB::bind_method(D_METHOD("remove_paragraph", "paragraph"), &RichTextLabel::remove_paragraph);
 	ClassDB::bind_method(D_METHOD("push_font", "font", "font_size"), &RichTextLabel::push_font);
 	ClassDB::bind_method(D_METHOD("push_font_size", "font_size"), &RichTextLabel::push_font_size);
 	ClassDB::bind_method(D_METHOD("push_normal"), &RichTextLabel::push_normal);
@@ -5341,6 +5347,7 @@ void RichTextLabel::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("push_cell"), &RichTextLabel::push_cell);
 	ClassDB::bind_method(D_METHOD("push_fgcolor", "fgcolor"), &RichTextLabel::push_fgcolor);
 	ClassDB::bind_method(D_METHOD("push_bgcolor", "bgcolor"), &RichTextLabel::push_bgcolor);
+	ClassDB::bind_method(D_METHOD("push_customfx", "effect", "env"), &RichTextLabel::push_customfx);
 	ClassDB::bind_method(D_METHOD("pop"), &RichTextLabel::pop);
 
 	ClassDB::bind_method(D_METHOD("clear"), &RichTextLabel::clear);
@@ -5378,8 +5385,8 @@ void RichTextLabel::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_tab_size", "spaces"), &RichTextLabel::set_tab_size);
 	ClassDB::bind_method(D_METHOD("get_tab_size"), &RichTextLabel::get_tab_size);
 
-	ClassDB::bind_method(D_METHOD("set_fit_content_height", "enabled"), &RichTextLabel::set_fit_content_height);
-	ClassDB::bind_method(D_METHOD("is_fit_content_height_enabled"), &RichTextLabel::is_fit_content_height_enabled);
+	ClassDB::bind_method(D_METHOD("set_fit_content", "enabled"), &RichTextLabel::set_fit_content);
+	ClassDB::bind_method(D_METHOD("is_fit_content_enabled"), &RichTextLabel::is_fit_content_enabled);
 
 	ClassDB::bind_method(D_METHOD("set_selection_enabled", "enabled"), &RichTextLabel::set_selection_enabled);
 	ClassDB::bind_method(D_METHOD("is_selection_enabled"), &RichTextLabel::is_selection_enabled);
@@ -5454,7 +5461,7 @@ void RichTextLabel::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "bbcode_enabled"), "set_use_bbcode", "is_using_bbcode");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "text", PROPERTY_HINT_MULTILINE_TEXT), "set_text", "get_text");
 
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "fit_content_height"), "set_fit_content_height", "is_fit_content_height_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "fit_content"), "set_fit_content", "is_fit_content_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "scroll_active"), "set_scroll_active", "is_scroll_active");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "scroll_following"), "set_scroll_follow", "is_scroll_following");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "autowrap_mode", PROPERTY_HINT_ENUM, "Off,Arbitrary,Word,Word (Smart)"), "set_autowrap_mode", "get_autowrap_mode");
@@ -5641,27 +5648,17 @@ int RichTextLabel::get_total_glyph_count() const {
 	return tg;
 }
 
-void RichTextLabel::set_fixed_size_to_width(int p_width) {
-	if (fixed_width == p_width) {
-		return;
-	}
-
-	fixed_width = p_width;
-	update_minimum_size();
-}
-
 Size2 RichTextLabel::get_minimum_size() const {
-	Size2 size = theme_cache.normal_style->get_minimum_size();
+	Size2 sb_min_size = theme_cache.normal_style->get_minimum_size();
+	Size2 min_size;
 
-	if (fixed_width != -1) {
-		size.x += fixed_width;
+	if (fit_content) {
+		min_size.x = get_content_width();
+		min_size.y = get_content_height();
 	}
 
-	if (fit_content_height) {
-		size.y += get_content_height();
-	}
-
-	return size;
+	return sb_min_size +
+			((autowrap_mode != TextServer::AUTOWRAP_OFF) ? Size2(1, min_size.height) : min_size);
 }
 
 // Context menu.

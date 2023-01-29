@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  editor_export.cpp                                                    */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  editor_export.cpp                                                     */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "editor_export.h"
 
@@ -45,6 +45,7 @@ void EditorExport::_save() {
 		config->set_value(section, "name", preset->get_name());
 		config->set_value(section, "platform", preset->get_platform()->get_name());
 		config->set_value(section, "runnable", preset->is_runnable());
+		config->set_value(section, "dedicated_server", preset->is_dedicated_server());
 		config->set_value(section, "custom_features", preset->get_custom_features());
 
 		bool save_files = false;
@@ -64,6 +65,11 @@ void EditorExport::_save() {
 				config->set_value(section, "export_filter", "exclude");
 				save_files = true;
 			} break;
+			case EditorExportPreset::EXPORT_CUSTOMIZED: {
+				config->set_value(section, "export_filter", "customized");
+				config->set_value(section, "customized_files", preset->get_customized_files());
+				save_files = false;
+			};
 		}
 
 		if (save_files) {
@@ -77,7 +83,6 @@ void EditorExport::_save() {
 		config->set_value(section, "encryption_exclude_filters", preset->get_enc_ex_filter());
 		config->set_value(section, "encrypt_pck", preset->get_enc_pck());
 		config->set_value(section, "encrypt_directory", preset->get_enc_directory());
-		config->set_value(section, "script_export_mode", preset->get_script_export_mode());
 		config->set_value(section, "script_encryption_key", preset->get_script_encryption_key());
 
 		String option_section = "preset." + itos(i) + ".options";
@@ -170,6 +175,12 @@ void EditorExport::_notification(int p_what) {
 		case NOTIFICATION_PROCESS: {
 			update_export_presets();
 		} break;
+
+		case NOTIFICATION_EXIT_TREE: {
+			for (int i = 0; i < export_platforms.size(); i++) {
+				export_platforms.write[i]->cleanup();
+			}
+		} break;
 	}
 }
 
@@ -208,6 +219,7 @@ void EditorExport::load_config() {
 
 		preset->set_name(config->get_value(section, "name"));
 		preset->set_runnable(config->get_value(section, "runnable"));
+		preset->set_dedicated_server(config->get_value(section, "dedicated_server", false));
 
 		if (config->has_section_key(section, "custom_features")) {
 			preset->set_custom_features(config->get_value(section, "custom_features"));
@@ -228,6 +240,10 @@ void EditorExport::load_config() {
 		} else if (export_filter == "exclude") {
 			preset->set_export_filter(EditorExportPreset::EXCLUDE_SELECTED_RESOURCES);
 			get_files = true;
+		} else if (export_filter == "customized") {
+			preset->set_export_filter(EditorExportPreset::EXPORT_CUSTOMIZED);
+			preset->set_customized_files(config->get_value(section, "customized_files", Dictionary()));
+			get_files = false;
 		}
 
 		if (get_files) {
@@ -257,9 +273,6 @@ void EditorExport::load_config() {
 		}
 		if (config->has_section_key(section, "encryption_exclude_filters")) {
 			preset->set_enc_ex_filter(config->get_value(section, "encryption_exclude_filters"));
-		}
-		if (config->has_section_key(section, "script_export_mode")) {
-			preset->set_script_export_mode(config->get_value(section, "script_export_mode"));
 		}
 		if (config->has_section_key(section, "script_encryption_key")) {
 			preset->set_script_encryption_key(config->get_value(section, "script_encryption_key"));

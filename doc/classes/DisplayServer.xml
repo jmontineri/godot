@@ -130,10 +130,23 @@
 				The names of built-in display servers are [code]Windows[/code], [code]macOS[/code], [code]X11[/code] (Linux), [code]Android[/code], [code]iOS[/code], [code]web[/code] (HTML5) and [code]headless[/code] (when started with the [code]--headless[/code] [url=$DOCS_URL/tutorials/editor/command_line_tutorial.html]command line argument[/url]).
 			</description>
 		</method>
+		<method name="get_primary_screen" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns index of the primary screen.
+			</description>
+		</method>
 		<method name="get_screen_count" qualifiers="const">
 			<return type="int" />
 			<description>
 				Returns the number of displays available.
+			</description>
+		</method>
+		<method name="get_screen_from_rect" qualifiers="const">
+			<return type="int" />
+			<param index="0" name="rect" type="Rect2" />
+			<description>
+				Returns index of the screen which contains specified rectangle.
 			</description>
 		</method>
 		<method name="get_swap_cancel_ok">
@@ -177,6 +190,7 @@
 			<description>
 				Adds a new checkable item with text [param label] to the global menu with ID [param menu_root].
 				Returns index of the inserted item, it's not guaranteed to be the same as [param index] value.
+				[b]Note:[/b] The [param callback] and [param key_callback] Callables need to accept exactly one Variant parameter, the parameter passed to the Callables will be the value passed to [param tag].
 				[b]Note:[/b] This method is implemented on macOS.
 				[b]Supported system menu IDs:[/b]
 				[codeblock]
@@ -198,6 +212,7 @@
 			<description>
 				Adds a new checkable item with text [param label] and icon [param icon] to the global menu with ID [param menu_root].
 				Returns index of the inserted item, it's not guaranteed to be the same as [param index] value.
+				[b]Note:[/b] The [param callback] and [param key_callback] Callables need to accept exactly one Variant parameter, the parameter passed to the Callables will be the value passed to [param tag].
 				[b]Note:[/b] This method is implemented on macOS.
 				[b]Supported system menu IDs:[/b]
 				[codeblock]
@@ -219,6 +234,7 @@
 			<description>
 				Adds a new item with text [param label] and icon [param icon] to the global menu with ID [param menu_root].
 				Returns index of the inserted item, it's not guaranteed to be the same as [param index] value.
+				[b]Note:[/b] The [param callback] and [param key_callback] Callables need to accept exactly one Variant parameter, the parameter passed to the Callables will be the value passed to [param tag].
 				[b]Note:[/b] This method is implemented on macOS.
 				[b]Supported system menu IDs:[/b]
 				[codeblock]
@@ -241,6 +257,7 @@
 				Adds a new radio-checkable item with text [param label] and icon [param icon] to the global menu with ID [param menu_root].
 				Returns index of the inserted item, it's not guaranteed to be the same as [param index] value.
 				[b]Note:[/b] Radio-checkable items just display a checkmark, but don't have any built-in checking behavior and must be checked/unchecked manually. See [method global_menu_set_item_checked] for more info on how to control it.
+				[b]Note:[/b] The [param callback] and [param key_callback] Callables need to accept exactly one Variant parameter, the parameter passed to the Callables will be the value passed to [param tag].
 				[b]Note:[/b] This method is implemented on macOS.
 				[b]Supported system menu IDs:[/b]
 				[codeblock]
@@ -261,6 +278,7 @@
 			<description>
 				Adds a new item with text [param label] to the global menu with ID [param menu_root].
 				Returns index of the inserted item, it's not guaranteed to be the same as [param index] value.
+				[b]Note:[/b] The [param callback] and [param key_callback] Callables need to accept exactly one Variant parameter, the parameter passed to the Callables will be the value passed to [param tag].
 				[b]Note:[/b] This method is implemented on macOS.
 				[b]Supported system menu IDs:[/b]
 				[codeblock]
@@ -272,7 +290,7 @@
 		<method name="global_menu_add_multistate_item">
 			<return type="int" />
 			<param index="0" name="menu_root" type="String" />
-			<param index="1" name="labe" type="String" />
+			<param index="1" name="label" type="String" />
 			<param index="2" name="max_states" type="int" />
 			<param index="3" name="default_state" type="int" />
 			<param index="4" name="callback" type="Callable" />
@@ -281,10 +299,11 @@
 			<param index="7" name="accelerator" type="int" enum="Key" default="0" />
 			<param index="8" name="index" type="int" default="-1" />
 			<description>
-				Adds a new item with text [param labe] to the global menu with ID [param menu_root].
+				Adds a new item with text [param label] to the global menu with ID [param menu_root].
 				Contrarily to normal binary items, multistate items can have more than two states, as defined by [param max_states]. Each press or activate of the item will increase the state by one. The default value is defined by [param default_state].
 				Returns index of the inserted item, it's not guaranteed to be the same as [param index] value.
 				[b]Note:[/b] By default, there's no indication of the current item state, it should be changed manually.
+				[b]Note:[/b] The [param callback] and [param key_callback] Callables need to accept exactly one Variant parameter, the parameter passed to the Callables will be the value passed to [param tag].
 				[b]Note:[/b] This method is implemented on macOS.
 				[b]Supported system menu IDs:[/b]
 				[codeblock]
@@ -306,6 +325,7 @@
 				Adds a new radio-checkable item with text [param label] to the global menu with ID [param menu_root].
 				Returns index of the inserted item, it's not guaranteed to be the same as [param index] value.
 				[b]Note:[/b] Radio-checkable items just display a checkmark, but don't have any built-in checking behavior and must be checked/unchecked manually. See [method global_menu_set_item_checked] for more info on how to control it.
+				[b]Note:[/b] The [param callback] and [param key_callback] Callables need to accept exactly one Variant parameter, the parameter passed to the Callables will be the value passed to [param tag].
 				[b]Note:[/b] This method is implemented on macOS.
 				[b]Supported system menu IDs:[/b]
 				[codeblock]
@@ -549,6 +569,7 @@
 			<param index="2" name="callback" type="Callable" />
 			<description>
 				Sets the callback of the item at index [param idx]. Callback is emitted when an item is pressed.
+				[b]Note:[/b] The [param callback] Callable needs to accept exactly one Variant parameter, the parameter passed to the Callable will be the value passed to the tag parameter when the menu item was created.
 				[b]Note:[/b] This method is implemented on macOS.
 			</description>
 		</method>
@@ -610,6 +631,7 @@
 			<param index="2" name="key_callback" type="Callable" />
 			<description>
 				Sets the callback of the item at index [param idx]. Callback is emitted when its accelerator is activated.
+				[b]Note:[/b] The [param key_callback] Callable needs to accept exactly one Variant parameter, the parameter passed to the Callable will be the value passed to the tag parameter when the menu item was created.
 				[b]Note:[/b] This method is implemented on macOS.
 			</description>
 		</method>
@@ -772,7 +794,7 @@
 			</description>
 		</method>
 		<method name="mouse_get_button_state" qualifiers="const">
-			<return type="int" enum="MouseButton" />
+			<return type="int" enum="MouseButtonMask" />
 			<description>
 				Returns the current state of mouse buttons (whether each button is pressed) as a bitmask. If multiple mouse buttons are pressed at the same time, the bits are added together. Equivalent to [method Input.get_mouse_button_mask].
 			</description>
@@ -1077,6 +1099,7 @@
 			<param index="0" name="position" type="Vector2i" />
 			<description>
 				Sets the mouse cursor position to the given [param position] relative to an origin at the upper left corner of the currently focused game Window Manager window.
+				[b]Note:[/b] [method warp_mouse] is only supported on Windows, macOS and Linux. It has no effect on Android, iOS and Web.
 			</description>
 		</method>
 		<method name="window_can_draw" qualifiers="const">
@@ -1421,9 +1444,9 @@
 			<param index="0" name="vsync_mode" type="int" enum="DisplayServer.VSyncMode" />
 			<param index="1" name="window_id" type="int" default="0" />
 			<description>
-				Sets the V-Sync mode of the given window.
+				Sets the V-Sync mode of the given window. See also [member ProjectSettings.display/window/vsync/vsync_mode].
 				See [enum DisplayServer.VSyncMode] for possible values and how they affect the behavior of your application.
-				Depending on the platform and used renderer, the engine will fall back to [constant VSYNC_ENABLED], if the desired mode is not supported.
+				Depending on the platform and used renderer, the engine will fall back to [constant VSYNC_ENABLED] if the desired mode is not supported.
 			</description>
 		</method>
 		<method name="window_set_window_buttons_offset">
@@ -1512,7 +1535,7 @@
 			Makes the mouse cursor hidden if it is visible.
 		</constant>
 		<constant name="MOUSE_MODE_CAPTURED" value="2" enum="MouseMode">
-			Captures the mouse. The mouse will be hidden and its position locked at the center of the screen.
+			Captures the mouse. The mouse will be hidden and its position locked at the center of the window manager's window.
 			[b]Note:[/b] If you want to process the mouse's movement in this mode, you need to use [member InputEventMouseMotion.relative].
 		</constant>
 		<constant name="MOUSE_MODE_CONFINED" value="3" enum="MouseMode">
@@ -1520,6 +1543,9 @@
 		</constant>
 		<constant name="MOUSE_MODE_CONFINED_HIDDEN" value="4" enum="MouseMode">
 			Confines the mouse cursor to the game window, and make it hidden.
+		</constant>
+		<constant name="SCREEN_PRIMARY" value="-2">
+			Represents the primary screen.
 		</constant>
 		<constant name="SCREEN_OF_MAIN_WINDOW" value="-1">
 			Represents the screen where the main window is located. This is usually the default value in functions that allow specifying one of several screens.
@@ -1678,7 +1704,10 @@
 			Use [method window_get_safe_title_margins] to determine area under the title bar that is not covered by decorations.
 			[b]Note:[/b] This flag is implemented on macOS.
 		</constant>
-		<constant name="WINDOW_FLAG_MAX" value="7" enum="WindowFlags">
+		<constant name="WINDOW_FLAG_MOUSE_PASSTHROUGH" value="7" enum="WindowFlags">
+			All mouse events are passed to the underlying window of the same application.
+		</constant>
+		<constant name="WINDOW_FLAG_MAX" value="8" enum="WindowFlags">
 			Max value of the [enum WindowFlags].
 		</constant>
 		<constant name="WINDOW_EVENT_MOUSE_ENTER" value="0" enum="WindowEvent">

@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  light_storage.cpp                                                    */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  light_storage.cpp                                                     */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "light_storage.h"
 #include "core/config/project_settings.h"
@@ -568,8 +568,6 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 	r_directional_light_count = 0;
 	r_positional_light_count = 0;
 
-	Plane camera_plane(-p_camera_transform.basis.get_column(Vector3::AXIS_Z).normalized(), p_camera_transform.origin);
-
 	omni_light_count = 0;
 	spot_light_count = 0;
 
@@ -720,7 +718,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				}
 
 				Transform3D light_transform = light_instance->transform;
-				const real_t distance = camera_plane.distance_to(light_transform.origin);
+				const real_t distance = p_camera_transform.origin.distance_to(light_transform.origin);
 
 				if (light->distance_fade) {
 					const float fade_begin = light->distance_fade_begin;
@@ -745,7 +743,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				}
 
 				Transform3D light_transform = light_instance->transform;
-				const real_t distance = camera_plane.distance_to(light_transform.origin);
+				const real_t distance = p_camera_transform.origin.distance_to(light_transform.origin);
 
 				if (light->distance_fade) {
 					const float fade_begin = light->distance_fade_begin;
@@ -787,6 +785,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 		RS::LightType type = (i < omni_light_count) ? RS::LIGHT_OMNI : RS::LIGHT_SPOT;
 		LightInstance *light_instance = (i < omni_light_count) ? omni_light_sort[index].light_instance : spot_light_sort[index].light_instance;
 		Light *light = (i < omni_light_count) ? omni_light_sort[index].light : spot_light_sort[index].light;
+		real_t distance = (i < omni_light_count) ? omni_light_sort[index].depth : spot_light_sort[index].depth;
 
 		if (using_forward_ids) {
 			forward_id_storage->map_forward_id(type == RS::LIGHT_OMNI ? RendererRD::FORWARD_ID_TYPE_OMNI_LIGHT : RendererRD::FORWARD_ID_TYPE_SPOT_LIGHT, light_instance->forward_id, index);
@@ -803,7 +802,6 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 		float fade_begin = 0.0;
 		float fade_shadow = 0.0;
 		float fade_length = 0.0;
-		real_t distance = 0.0;
 
 		float fade = 1.0;
 		float shadow_opacity_fade = 1.0;
@@ -811,7 +809,6 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 			fade_begin = light->distance_fade_begin;
 			fade_shadow = light->distance_fade_shadow;
 			fade_length = light->distance_fade_length;
-			distance = camera_plane.distance_to(light_transform.origin);
 
 			// Use `smoothstep()` to make opacity changes more gradual and less noticeable to the player.
 			if (distance > fade_begin) {
@@ -1315,6 +1312,10 @@ void LightStorage::reflection_atlas_set_size(RID p_ref_atlas, int p_reflection_s
 
 		ra->reflections.clear();
 	}
+
+	if (ra->render_buffers.is_valid()) {
+		ra->render_buffers->cleanup();
+	}
 }
 
 int LightStorage::reflection_atlas_get_size(RID p_ref_atlas) const {
@@ -1360,6 +1361,9 @@ void LightStorage::reflection_probe_release_atlas_index(RID p_instance) {
 	ERR_FAIL_COND(!atlas);
 	ERR_FAIL_INDEX(rpi->atlas_index, atlas->reflections.size());
 	atlas->reflections.write[rpi->atlas_index].owner = RID();
+
+	// TODO investigate if this is enough? shouldn't we be freeing our textures and framebuffers?
+
 	rpi->atlas_index = -1;
 	rpi->atlas = RID();
 }
@@ -1397,6 +1401,10 @@ bool LightStorage::reflection_probe_instance_begin_render(RID p_instance, RID p_
 
 	ReflectionProbeInstance *rpi = reflection_probe_instance_owner.get_or_null(p_instance);
 	ERR_FAIL_COND_V(!rpi, false);
+
+	if (atlas->render_buffers.is_null()) {
+		atlas->render_buffers.instantiate();
+	}
 
 	RD::get_singleton()->draw_command_begin_label("Reflection probe render");
 
@@ -1455,6 +1463,8 @@ bool LightStorage::reflection_probe_instance_begin_render(RID p_instance, RID p_
 		Vector<RID> fb;
 		fb.push_back(atlas->depth_buffer);
 		atlas->depth_fb = RD::get_singleton()->framebuffer_create(fb);
+
+		atlas->render_buffers->configure_for_reflections(Size2i(atlas->size, atlas->size));
 	}
 
 	if (rpi->atlas_index == -1) {
@@ -1492,6 +1502,13 @@ bool LightStorage::reflection_probe_instance_begin_render(RID p_instance, RID p_
 	RD::get_singleton()->draw_command_end_label();
 
 	return true;
+}
+
+Ref<RenderSceneBuffers> LightStorage::reflection_probe_atlas_get_render_buffers(RID p_reflection_atlas) {
+	ReflectionAtlas *atlas = reflection_atlas_owner.get_or_null(p_reflection_atlas);
+	ERR_FAIL_COND_V(!atlas, Ref<RenderSceneBuffersRD>());
+
+	return atlas->render_buffers;
 }
 
 bool LightStorage::reflection_probe_instance_postprocess_step(RID p_instance) {

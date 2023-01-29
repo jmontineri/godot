@@ -122,10 +122,10 @@ namespace GodotTools.Build
         {
             base._Ready();
 
-            CustomMinimumSize = new Vector2i(0, (int)(228 * EditorScale));
-            SizeFlagsVertical = (int)SizeFlags.ExpandFill;
+            CustomMinimumSize = new Vector2(0, 228 * EditorScale);
+            SizeFlagsVertical = SizeFlags.ExpandFill;
 
-            var toolBarHBox = new HBoxContainer { SizeFlagsHorizontal = (int)SizeFlags.ExpandFill };
+            var toolBarHBox = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
             AddChild(toolBarHBox);
 
             _buildMenuBtn = new MenuButton { Text = "Build", Icon = GetThemeIcon("Play", "EditorIcons") };
@@ -175,7 +175,7 @@ namespace GodotTools.Build
             AddChild(BuildOutputView);
         }
 
-        public override void _Notification(long what)
+        public override void _Notification(int what)
         {
             base._Notification(what);
 

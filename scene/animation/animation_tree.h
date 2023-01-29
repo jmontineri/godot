@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  animation_tree.h                                                     */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  animation_tree.h                                                      */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef ANIMATION_TREE_H
 #define ANIMATION_TREE_H
@@ -35,6 +35,7 @@
 #include "scene/3d/node_3d.h"
 #include "scene/3d/skeleton_3d.h"
 #include "scene/resources/animation.h"
+#include "scene/resources/audio_stream_polyphonic.h"
 
 class AnimationNodeBlendTree;
 class AnimationNodeStartState;
@@ -117,6 +118,7 @@ protected:
 	GDVIRTUAL0RC(Array, _get_parameter_list)
 	GDVIRTUAL1RC(Ref<AnimationNode>, _get_child_by_name, StringName)
 	GDVIRTUAL1RC(Variant, _get_parameter_default_value, StringName)
+	GDVIRTUAL1RC(bool, _is_parameter_read_only, StringName)
 	GDVIRTUAL3RC(double, _process, double, bool, bool)
 	GDVIRTUAL0RC(String, _get_caption)
 	GDVIRTUAL0RC(bool, _has_filter)
@@ -124,6 +126,7 @@ protected:
 public:
 	virtual void get_parameter_list(List<PropertyInfo> *r_list) const;
 	virtual Variant get_parameter_default_value(const StringName &p_parameter) const;
+	virtual bool is_parameter_read_only(const StringName &p_parameter) const;
 
 	void set_parameter(const StringName &p_name, const Variant &p_value);
 	Variant get_parameter(const StringName &p_name) const;
@@ -250,10 +253,28 @@ private:
 		}
 	};
 
-	struct TrackCacheAudio : public TrackCache {
-		bool playing = false;
+	// Audio stream information for each audio stream placed on the track.
+	struct PlayingAudioStreamInfo {
+		AudioStreamPlaybackPolyphonic::ID index = -1; // ID retrieved from AudioStreamPlaybackPolyphonic.
 		double start = 0.0;
 		double len = 0.0;
+	};
+
+	// Audio track information for mixng and ending.
+	struct PlayingAudioTrackInfo {
+		HashMap<int, PlayingAudioStreamInfo> stream_info;
+		double length = 0.0;
+		double time = 0.0;
+		real_t volume = 0.0;
+		bool loop = false;
+		bool backward = false;
+		bool use_blend = false;
+	};
+
+	struct TrackCacheAudio : public TrackCache {
+		Ref<AudioStreamPolyphonic> audio_stream;
+		Ref<AudioStreamPlaybackPolyphonic> audio_stream_playback;
+		HashMap<ObjectID, PlayingAudioTrackInfo> playing_streams; // Key is Animation resource ObjectID.
 
 		TrackCacheAudio() {
 			type = Animation::TYPE_AUDIO;
@@ -270,6 +291,7 @@ private:
 
 	HashMap<NodePath, TrackCache *> track_cache;
 	HashSet<TrackCache *> playing_caches;
+	Vector<Node *> playing_audio_stream_players;
 
 	Ref<AnimationNode> root;
 	NodePath advance_expression_base_node = NodePath(String("."));
@@ -277,6 +299,7 @@ private:
 	AnimationProcessCallback process_callback = ANIMATION_PROCESS_IDLE;
 	bool active = false;
 	NodePath animation_player;
+	int audio_max_polyphony = 32;
 
 	AnimationNode::State state;
 	bool cache_valid = false;
@@ -285,6 +308,8 @@ private:
 	void _setup_animation_player();
 	void _animation_player_changed();
 	void _clear_caches();
+	void _clear_playing_caches();
+	void _clear_audio_streams();
 	bool _update_caches(AnimationPlayer *player);
 	void _process_graph(double p_delta);
 
@@ -304,7 +329,7 @@ private:
 	void _update_properties();
 	List<PropertyInfo> properties;
 	HashMap<StringName, HashMap<StringName, StringName>> property_parent_map;
-	HashMap<StringName, Variant> property_map;
+	HashMap<StringName, Pair<Variant, bool>> property_map; // Property value and read-only flag.
 
 	struct Activity {
 		uint64_t last_pass = 0;
@@ -326,6 +351,8 @@ protected:
 	void _notification(int p_what);
 	static void _bind_methods();
 
+	GDVIRTUAL5RC(Variant, _post_process_key_value, Ref<Animation>, int, Variant, Object *, int);
+	Variant post_process_key_value(const Ref<Animation> &p_anim, int p_track, Variant p_value, const Object *p_object, int p_object_idx = -1);
 	virtual Variant _post_process_key_value(const Ref<Animation> &p_anim, int p_track, Variant p_value, const Object *p_object, int p_object_idx = -1);
 
 public:
@@ -343,6 +370,9 @@ public:
 
 	void set_advance_expression_base_node(const NodePath &p_advance_expression_base_node);
 	NodePath get_advance_expression_base_node() const;
+
+	void set_audio_max_polyphony(int p_audio_max_polyphony);
+	int get_audio_max_polyphony() const;
 
 	PackedStringArray get_configuration_warnings() const override;
 
