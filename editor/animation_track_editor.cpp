@@ -1108,7 +1108,7 @@ void AnimationMultiTrackKeyEdit::_get_property_list(List<PropertyInfo> *p_list) 
 				p_list->push_back(PropertyInfo(Variant::VECTOR3, "position"));
 			} break;
 			case Animation::TYPE_ROTATION_3D: {
-				p_list->push_back(PropertyInfo(Variant::QUATERNION, "scale"));
+				p_list->push_back(PropertyInfo(Variant::QUATERNION, "rotation"));
 			} break;
 			case Animation::TYPE_SCALE_3D: {
 				p_list->push_back(PropertyInfo(Variant::VECTOR3, "scale"));
@@ -2228,7 +2228,7 @@ void AnimationTrackEdit::draw_key(int p_index, float p_pixels_sec, int p_x, bool
 			if (i > 0) {
 				text += ", ";
 			}
-			text += String(args[i]);
+			text += args[i].get_construct_string();
 		}
 		text += ")";
 
@@ -2540,7 +2540,7 @@ String AnimationTrackEdit::get_tooltip(const Point2 &p_pos) const {
 						if (i > 0) {
 							text += ", ";
 						}
-						text += String(args[i]);
+						text += args[i].get_construct_string();
 					}
 					text += ")\n";
 
@@ -2986,7 +2986,6 @@ bool AnimationTrackEdit::can_drop_data(const Point2 &p_point, const Variant &p_d
 	}
 
 	const_cast<AnimationTrackEdit *>(this)->queue_redraw();
-	const_cast<AnimationTrackEdit *>(this)->emit_signal(SNAME("drop_attempted"), track);
 
 	return true;
 }

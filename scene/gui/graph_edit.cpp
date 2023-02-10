@@ -193,7 +193,7 @@ void GraphEditMinimap::_adjust_graph_scroll(const Vector2 &p_offset) {
 PackedStringArray GraphEdit::get_configuration_warnings() const {
 	PackedStringArray warnings = Control::get_configuration_warnings();
 
-	warnings.push_back(RTR("Please be aware that GraphEdit and GraphNode will undergo extensive refactoring in a future beta version involving compatibility-breaking API changes."));
+	warnings.push_back(RTR("Please be aware that GraphEdit and GraphNode will undergo extensive refactoring in a future 4.x version involving compatibility-breaking API changes."));
 
 	return warnings;
 }
@@ -264,10 +264,6 @@ void GraphEdit::_scroll_moved(double) {
 	top_layer->queue_redraw();
 	minimap->queue_redraw();
 	queue_redraw();
-
-	if (!setting_scroll_ofs) { //in godot, signals on change value are avoided as a convention
-		emit_signal(SNAME("scroll_offset_changed"), get_scroll_ofs());
-	}
 }
 
 void GraphEdit::_update_scroll_offset() {
@@ -290,6 +286,10 @@ void GraphEdit::_update_scroll_offset() {
 	connections_layer->set_position(-Point2(h_scroll->get_value(), v_scroll->get_value()));
 	set_block_minimum_size_adjust(false);
 	awaiting_scroll_offset_update = false;
+
+	if (!setting_scroll_ofs) { //in godot, signals on change value are avoided as a convention
+		emit_signal(SNAME("scroll_offset_changed"), get_scroll_ofs());
+	}
 }
 
 void GraphEdit::_update_scroll() {
