@@ -363,8 +363,11 @@ vec3 apply_color_correction(vec3 color) {
 
 vec4 apply_chromatic_aberration(sampler2DArray texture, vec2 uv, float index, float amount)
 {
-	vec2 uv_r = (uv - vec2(0.5, 0.5)) *  (1 - amount) + vec2(0.5, 0.5);
-	vec2 uv_b = (uv - vec2(0.5, 0.5)) *  (1 + amount) + vec2(0.5, 0.5);
+	vec2 fade_uv = uv * (1.0 - uv.yx);
+	float intensity = clamp(1 - (fade_uv.x * fade_uv.y * 15.0), 0.0, 1.0);
+
+	vec2 uv_r = (uv - intensity * amount);
+	vec2 uv_b = (uv + intensity * amount);
 
 	float r = textureLod(texture, vec3(uv_r, index), 0.0f).r;
 	vec2 ga = textureLod(texture, vec3(uv, index), 0.0f).ga;
@@ -377,8 +380,11 @@ vec4 apply_chromatic_aberration(sampler2DArray texture, vec2 uv, float index, fl
 
 vec4 apply_chromatic_aberration(sampler2D texture, vec2 uv, float amount)
 {
-	vec2 uv_r = (uv - vec2(0.5, 0.5)) *  (1.0 - amount) + vec2(0.5, 0.5);
-	vec2 uv_b = (uv - vec2(0.5, 0.5)) *  (1.0 + amount) + vec2(0.5, 0.5);
+	vec2 fade_uv = uv * (1.0 - uv.yx);
+	float intensity = clamp(1 - (fade_uv.x * fade_uv.y * 15.0), 0.0, 1.0);
+
+	vec2 uv_r = (uv - intensity * amount);
+	vec2 uv_b = (uv + intensity * amount);
 
 	float r = textureLod(texture, uv_r, 0.0f).r;
 	vec2 ga = textureLod(texture, uv, 0.0f).ga;
