@@ -360,7 +360,7 @@ void vertex_shader(in uint instance_index, in bool is_multimesh, in uint multime
 		vertex = mat3(matrix) * vertex;
 		model_origin = double_add_vec3(model_origin, model_precision, matrix[3].xyz, vec3(0.0), model_precision);
 	}
-	vertex = mat3(model_matrix) * vertex;
+	vertex = mat3(inv_view_matrix * modelview) * vertex;
 	vec3 temp_precision; // Will be ignored.
 	vertex += double_add_vec3(model_origin, model_precision, scene_data.inv_view_matrix[3].xyz, view_precision, temp_precision);
 	vertex = mat3(scene_data.view_matrix) * vertex;
@@ -1391,7 +1391,11 @@ void fragment_shader(in SceneData scene_data) {
 #endif // !USE_LIGHTMAP
 
 	if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSAO)) {
+#ifdef USE_MULTIVIEW
+		float ssao = texture(sampler2DArray(ao_buffer, material_samplers[SAMPLER_LINEAR_CLAMP]), vec3(screen_uv, ViewIndex)).r;
+#else
 		float ssao = texture(sampler2D(ao_buffer, material_samplers[SAMPLER_LINEAR_CLAMP]), screen_uv).r;
+#endif
 		ao = min(ao, ssao);
 		ao_light_affect = mix(ao_light_affect, max(ao_light_affect, implementation_data.ssao_light_affect), implementation_data.ssao_ao_affect);
 	}
@@ -1474,7 +1478,11 @@ void fragment_shader(in SceneData scene_data) {
 		ambient_light *= ao;
 
 		if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSIL)) {
+#ifdef USE_MULTIVIEW
+			vec4 ssil = textureLod(sampler2DArray(ssil_buffer, material_samplers[SAMPLER_LINEAR_CLAMP]), vec3(screen_uv, ViewIndex), 0.0);
+#else
 			vec4 ssil = textureLod(sampler2D(ssil_buffer, material_samplers[SAMPLER_LINEAR_CLAMP]), screen_uv, 0.0);
+#endif // USE_MULTIVIEW
 			ambient_light *= 1.0 - ssil.a;
 			ambient_light += ssil.rgb * albedo.rgb;
 		}

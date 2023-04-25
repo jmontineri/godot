@@ -219,7 +219,7 @@ void CanvasItem::_enter_canvas() {
 		RenderingServer::get_singleton()->canvas_item_set_parent(canvas_item, canvas);
 		RenderingServer::get_singleton()->canvas_item_set_visibility_layer(canvas_item, visibility_layer);
 
-		canvas_group = "root_canvas" + itos(canvas.get_id());
+		canvas_group = "_root_canvas" + itos(canvas.get_id());
 
 		add_to_group(canvas_group);
 		if (canvas_layer) {
@@ -289,11 +289,12 @@ void CanvasItem::_notification(int p_what) {
 				}
 			}
 
+			_enter_canvas();
+
 			RenderingServer::get_singleton()->canvas_item_set_visible(canvas_item, is_visible_in_tree()); // The visibility of the parent may change.
 			if (is_visible_in_tree()) {
 				notification(NOTIFICATION_VISIBILITY_CHANGED); // Considered invisible until entered.
 			}
-			_enter_canvas();
 
 			_update_texture_filter_changed(false);
 			_update_texture_repeat_changed(false);
@@ -340,9 +341,7 @@ void CanvasItem::_notification(int p_what) {
 }
 
 void CanvasItem::_window_visibility_changed() {
-	if (visible) {
-		_propagate_visibility_changed(window->is_visible());
-	}
+	_propagate_visibility_changed(window->is_visible());
 }
 
 void CanvasItem::queue_redraw() {
@@ -513,14 +512,16 @@ bool CanvasItem::is_y_sort_enabled() const {
 
 void CanvasItem::draw_dashed_line(const Point2 &p_from, const Point2 &p_to, const Color &p_color, real_t p_width, real_t p_dash, bool p_aligned) {
 	ERR_FAIL_COND_MSG(!drawing, "Drawing is only allowed inside NOTIFICATION_DRAW, _draw() function or 'draw' signal.");
+	ERR_FAIL_COND(p_dash <= 0.0);
 
 	float length = (p_to - p_from).length();
-	if (length < p_dash) {
+	Vector2 step = p_dash * (p_to - p_from).normalized();
+
+	if (length < p_dash || step == Vector2()) {
 		RenderingServer::get_singleton()->canvas_item_add_line(canvas_item, p_from, p_to, p_color, p_width);
 		return;
 	}
 
-	Vector2 step = p_dash * (p_to - p_from).normalized();
 	int steps = (p_aligned) ? Math::ceil(length / p_dash) : Math::floor(length / p_dash);
 	if (steps % 2 == 0) {
 		steps--;

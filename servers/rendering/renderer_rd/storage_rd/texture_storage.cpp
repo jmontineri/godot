@@ -362,7 +362,7 @@ TextureStorage::TextureStorage() {
 		}
 	}
 
-	{ //create default array
+	{ //create default array white
 
 		RD::TextureFormat tformat;
 		tformat.format = RD::DATA_FORMAT_R8G8B8A8_UNORM;
@@ -385,6 +385,82 @@ TextureStorage::TextureStorage() {
 			Vector<Vector<uint8_t>> vpv;
 			vpv.push_back(pv);
 			default_rd_textures[DEFAULT_RD_TEXTURE_2D_ARRAY_WHITE] = RD::get_singleton()->texture_create(tformat, RD::TextureView(), vpv);
+		}
+	}
+
+	{ //create default array black
+
+		RD::TextureFormat tformat;
+		tformat.format = RD::DATA_FORMAT_R8G8B8A8_UNORM;
+		tformat.width = 4;
+		tformat.height = 4;
+		tformat.array_layers = 1;
+		tformat.usage_bits = RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_CAN_UPDATE_BIT;
+		tformat.texture_type = RD::TEXTURE_TYPE_2D_ARRAY;
+
+		Vector<uint8_t> pv;
+		pv.resize(16 * 4);
+		for (int i = 0; i < 16; i++) {
+			pv.set(i * 4 + 0, 0);
+			pv.set(i * 4 + 1, 0);
+			pv.set(i * 4 + 2, 0);
+			pv.set(i * 4 + 3, 0);
+		}
+
+		{
+			Vector<Vector<uint8_t>> vpv;
+			vpv.push_back(pv);
+			default_rd_textures[DEFAULT_RD_TEXTURE_2D_ARRAY_BLACK] = RD::get_singleton()->texture_create(tformat, RD::TextureView(), vpv);
+		}
+	}
+
+	{ //create default array normal
+
+		RD::TextureFormat tformat;
+		tformat.format = RD::DATA_FORMAT_R8G8B8A8_UNORM;
+		tformat.width = 4;
+		tformat.height = 4;
+		tformat.array_layers = 1;
+		tformat.usage_bits = RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_CAN_UPDATE_BIT;
+		tformat.texture_type = RD::TEXTURE_TYPE_2D_ARRAY;
+
+		Vector<uint8_t> pv;
+		pv.resize(16 * 4);
+		for (int i = 0; i < 16; i++) {
+			pv.set(i * 4 + 0, 128);
+			pv.set(i * 4 + 1, 128);
+			pv.set(i * 4 + 2, 255);
+			pv.set(i * 4 + 3, 255);
+		}
+
+		{
+			Vector<Vector<uint8_t>> vpv;
+			vpv.push_back(pv);
+			default_rd_textures[DEFAULT_RD_TEXTURE_2D_ARRAY_NORMAL] = RD::get_singleton()->texture_create(tformat, RD::TextureView(), vpv);
+		}
+	}
+
+	{ //create default array depth
+
+		RD::TextureFormat tformat;
+		tformat.format = RD::DATA_FORMAT_D16_UNORM;
+		tformat.width = 4;
+		tformat.height = 4;
+		tformat.array_layers = 1;
+		tformat.usage_bits = RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_CAN_UPDATE_BIT | RD::TEXTURE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		tformat.texture_type = RD::TEXTURE_TYPE_2D_ARRAY;
+
+		Vector<uint8_t> sv;
+		sv.resize(16 * 2);
+		uint16_t *ptr = (uint16_t *)sv.ptrw();
+		for (int i = 0; i < 16; i++) {
+			ptr[i] = Math::make_half_float(1.0f);
+		}
+
+		{
+			Vector<Vector<uint8_t>> vsv;
+			vsv.push_back(sv);
+			default_rd_textures[DEFAULT_RD_TEXTURE_2D_ARRAY_DEPTH] = RD::get_singleton()->texture_create(tformat, RD::TextureView(), vsv);
 		}
 	}
 
@@ -1117,6 +1193,9 @@ void TextureStorage::texture_proxy_update(RID p_texture, RID p_proxy_to) {
 		prev_tex->proxies.erase(p_texture);
 	}
 
+	// Copy canvas_texture so it doesn't leak.
+	CanvasTexture *canvas_texture = tex->canvas_texture;
+
 	*tex = *proxy_to;
 
 	tex->proxy_to = p_proxy_to;
@@ -1124,6 +1203,7 @@ void TextureStorage::texture_proxy_update(RID p_texture, RID p_proxy_to) {
 	tex->is_proxy = true;
 	tex->proxies.clear();
 	proxy_to->proxies.push_back(p_texture);
+	tex->canvas_texture = canvas_texture;
 
 	tex->rd_view.format_override = tex->rd_format;
 	tex->rd_texture = RD::get_singleton()->texture_create_shared(tex->rd_view, proxy_to->rd_texture);
@@ -2829,6 +2909,13 @@ RID TextureStorage::render_target_get_rd_texture_slice(RID p_render_target, uint
 		}
 		return rt->color_slices[p_layer];
 	}
+}
+
+RID TextureStorage::render_target_get_rd_texture_msaa(RID p_render_target) {
+	RenderTarget *rt = render_target_owner.get_or_null(p_render_target);
+	ERR_FAIL_COND_V(!rt, RID());
+
+	return rt->color_multisample;
 }
 
 RID TextureStorage::render_target_get_rd_backbuffer(RID p_render_target) {

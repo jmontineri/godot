@@ -265,7 +265,7 @@ private:
 			}
 
 		} else {
-			// check if the specified folder is empty, even though this is not an error, it is good to check here
+			// Check if the specified folder is empty, even though this is not an error, it is good to check here.
 			d->list_dir_begin();
 			is_folder_empty = true;
 			String n = d->get_next();
@@ -283,6 +283,12 @@ private:
 			d->list_dir_end();
 
 			if (!is_folder_empty) {
+				if (valid_path == OS::get_singleton()->get_environment("HOME") || valid_path == OS::get_singleton()->get_system_dir(OS::SYSTEM_DIR_DOCUMENTS) || valid_path == OS::get_singleton()->get_executable_path().get_base_dir()) {
+					set_message(TTR("You cannot save a project in the selected path. Please make a new folder or choose a new path."), MESSAGE_ERROR);
+					get_ok_button()->set_disabled(true);
+					return "";
+				}
+
 				set_message(TTR("The selected path is not empty. Choosing an empty folder is highly recommended."), MESSAGE_WARNING);
 				get_ok_button()->set_disabled(false);
 				return valid_path;
@@ -911,33 +917,41 @@ public:
 		Button *rs_button = memnew(CheckBox);
 		rs_button->set_button_group(renderer_button_group);
 		rs_button->set_text(TTR("Forward+"));
+#if defined(WEB_ENABLED)
+		rs_button->set_disabled(true);
+#endif
 		rs_button->set_meta(SNAME("rendering_method"), "forward_plus");
 		rs_button->connect("pressed", callable_mp(this, &ProjectDialog::_renderer_selected));
 		rvb->add_child(rs_button);
 		if (default_renderer_type == "forward_plus") {
 			rs_button->set_pressed(true);
 		}
-
 		rs_button = memnew(CheckBox);
 		rs_button->set_button_group(renderer_button_group);
 		rs_button->set_text(TTR("Mobile"));
+#if defined(WEB_ENABLED)
+		rs_button->set_disabled(true);
+#endif
 		rs_button->set_meta(SNAME("rendering_method"), "mobile");
 		rs_button->connect("pressed", callable_mp(this, &ProjectDialog::_renderer_selected));
 		rvb->add_child(rs_button);
 		if (default_renderer_type == "mobile") {
 			rs_button->set_pressed(true);
 		}
-
 		rs_button = memnew(CheckBox);
 		rs_button->set_button_group(renderer_button_group);
 		rs_button->set_text(TTR("Compatibility"));
+#if !defined(GLES3_ENABLED)
+		rs_button->set_disabled(true);
+#endif
 		rs_button->set_meta(SNAME("rendering_method"), "gl_compatibility");
 		rs_button->connect("pressed", callable_mp(this, &ProjectDialog::_renderer_selected));
 		rvb->add_child(rs_button);
+#if defined(GLES3_ENABLED)
 		if (default_renderer_type == "gl_compatibility") {
 			rs_button->set_pressed(true);
 		}
-
+#endif
 		rshc->add_child(memnew(VSeparator));
 
 		// Right hand side, used for text explaining each choice.
@@ -1358,6 +1372,8 @@ void ProjectList::load_projects() {
 	for (int i = 0; i < _projects.size(); ++i) {
 		create_project_item_control(i);
 	}
+
+	sort_projects();
 
 	set_v_scroll(0);
 
@@ -1818,9 +1834,11 @@ void ProjectList::erase_selected_projects(bool p_delete_project_contents) {
 		if (_selected_project_paths.has(item.path) && item.control->is_visible()) {
 			_config.erase_section(item.path);
 
-			if (p_delete_project_contents) {
-				OS::get_singleton()->move_to_trash(item.path);
-			}
+			// Comment out for now until we have a better warning system to
+			// ensure users delete their project only.
+			//if (p_delete_project_contents) {
+			//	OS::get_singleton()->move_to_trash(item.path);
+			//}
 
 			memdelete(item.control);
 			_projects.remove_at(i);
@@ -2011,16 +2029,25 @@ void ProjectManager::_notification(int p_what) {
 }
 
 Ref<Texture2D> ProjectManager::_file_dialog_get_icon(const String &p_path) {
-	return singleton->icon_type_cache["ObjectHR"];
+	if (p_path.get_extension().to_lower() == "godot") {
+		return singleton->icon_type_cache["GodotMonochrome"];
+	}
+
+	return singleton->icon_type_cache["Object"];
+}
+
+Ref<Texture2D> ProjectManager::_file_dialog_get_thumbnail(const String &p_path) {
+	if (p_path.get_extension().to_lower() == "godot") {
+		return singleton->icon_type_cache["GodotFile"];
+	}
+
+	return Ref<Texture2D>();
 }
 
 void ProjectManager::_build_icon_type_cache(Ref<Theme> p_theme) {
 	List<StringName> tl;
 	p_theme->get_icon_list(SNAME("EditorIcons"), &tl);
 	for (List<StringName>::Element *E = tl.front(); E; E = E->next()) {
-		if (!ClassDB::class_exists(E->get())) {
-			continue;
-		}
 		icon_type_cache[E->get()] = p_theme->get_icon(E->get(), SNAME("EditorIcons"));
 	}
 }
@@ -2229,11 +2256,11 @@ void ProjectManager::_open_selected_projects_ask() {
 		return;
 	}
 
-	const Size2i popup_min_width = Size2i(600.0 * EDSCALE, 0);
+	const Size2i popup_min_size = Size2i(600.0 * EDSCALE, 0);
 
 	if (selected_list.size() > 1) {
 		multi_open_ask->set_text(vformat(TTR("You requested to open %d projects in parallel. Do you confirm?\nNote that usual checks for engine version compatibility will be bypassed."), selected_list.size()));
-		multi_open_ask->popup_centered(popup_min_width);
+		multi_open_ask->popup_centered(popup_min_size);
 		return;
 	}
 
@@ -2255,7 +2282,7 @@ void ProjectManager::_open_selected_projects_ask() {
 	// Check if the config_version property was empty or 0.
 	if (config_version == 0) {
 		ask_update_settings->set_text(vformat(TTR("The selected project \"%s\" does not specify its supported Godot version in its configuration file (\"project.godot\").\n\nProject path: %s\n\nIf you proceed with opening it, it will be converted to Godot's current configuration file format.\n\nWarning: You won't be able to open the project with previous versions of the engine anymore."), project.project_name, project.path));
-		ask_update_settings->popup_centered(popup_min_width);
+		ask_update_settings->popup_centered(popup_min_size);
 		return;
 	}
 	// Check if we need to convert project settings from an earlier engine version.
@@ -2268,14 +2295,14 @@ void ProjectManager::_open_selected_projects_ask() {
 			ask_update_settings->set_text(vformat(TTR("The selected project \"%s\" was generated by an older engine version, and needs to be converted for this version.\n\nProject path: %s\n\nDo you want to convert it?\n\nWarning: You won't be able to open the project with previous versions of the engine anymore."), project.project_name, project.path));
 			ask_update_settings->get_ok_button()->set_text(TTR("Convert project.godot"));
 		}
-		ask_update_settings->popup_centered(popup_min_width);
+		ask_update_settings->popup_centered(popup_min_size);
 		ask_update_settings->get_cancel_button()->grab_focus(); // To prevent accidents.
 		return;
 	}
 	// Check if the file was generated by a newer, incompatible engine version.
 	if (config_version > ProjectSettings::CONFIG_VERSION) {
 		dialog_error->set_text(vformat(TTR("Can't open project \"%s\" at the following path:\n\n%s\n\nThe project settings were created by a newer engine version, whose settings are not compatible with this version."), project.project_name, project.path));
-		dialog_error->popup_centered(popup_min_width);
+		dialog_error->popup_centered(popup_min_size);
 		return;
 	}
 	// Check if the project is using features not supported by this build of Godot.
@@ -2304,7 +2331,7 @@ void ProjectManager::_open_selected_projects_ask() {
 		warning_message += TTR("Open anyway? Project will be modified.");
 		ask_update_label->set_horizontal_alignment(HORIZONTAL_ALIGNMENT_CENTER);
 		ask_update_settings->set_text(warning_message);
-		ask_update_settings->popup_centered(popup_min_width);
+		ask_update_settings->popup_centered(popup_min_size);
 		return;
 	}
 
@@ -2447,7 +2474,7 @@ void ProjectManager::_rename_project() {
 }
 
 void ProjectManager::_erase_project_confirm() {
-	_project_list->erase_selected_projects(delete_project_contents->is_pressed());
+	_project_list->erase_selected_projects(false);
 	_update_project_buttons();
 }
 
@@ -2471,7 +2498,7 @@ void ProjectManager::_erase_project() {
 	}
 
 	erase_ask_label->set_text(confirm_message);
-	delete_project_contents->set_pressed(false);
+	//delete_project_contents->set_pressed(false);
 	erase_ask->popup_centered();
 }
 
@@ -2649,6 +2676,7 @@ ProjectManager::ProjectManager() {
 				break;
 		}
 		EditorFileDialog::get_icon_func = &ProjectManager::_file_dialog_get_icon;
+		EditorFileDialog::get_thumbnail_func = &ProjectManager::_file_dialog_get_thumbnail;
 	}
 
 	// TRANSLATORS: This refers to the application where users manage their Godot projects.
@@ -2662,10 +2690,11 @@ ProjectManager::ProjectManager() {
 		AcceptDialog::set_swap_cancel_ok(swap_cancel_ok == 2);
 	}
 
+	EditorColorMap::create();
 	Ref<Theme> theme = create_custom_theme();
-	set_theme(theme);
 	DisplayServer::set_early_window_clear_color_override(true, theme->get_color(SNAME("background"), SNAME("Editor")));
 
+	set_theme(theme);
 	set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 
 	Panel *panel = memnew(Panel);
@@ -2933,9 +2962,11 @@ ProjectManager::ProjectManager() {
 		erase_ask_label = memnew(Label);
 		erase_ask_vb->add_child(erase_ask_label);
 
-		delete_project_contents = memnew(CheckBox);
-		delete_project_contents->set_text(TTR("Also delete project contents (no undo!)"));
-		erase_ask_vb->add_child(delete_project_contents);
+		// Comment out for now until we have a better warning system to
+		// ensure users delete their project only.
+		//delete_project_contents = memnew(CheckBox);
+		//delete_project_contents->set_text(TTR("Also delete project contents (no undo!)"));
+		//erase_ask_vb->add_child(delete_project_contents);
 
 		multi_open_ask = memnew(ConfirmationDialog);
 		multi_open_ask->set_ok_button_text(TTR("Edit"));
@@ -2954,7 +2985,7 @@ ProjectManager::ProjectManager() {
 		ask_update_settings = memnew(ConfirmationDialog);
 		ask_update_settings->set_autowrap(true);
 		ask_update_settings->get_ok_button()->connect("pressed", callable_mp(this, &ProjectManager::_confirm_update_settings));
-		full_convert_button = ask_update_settings->add_button("Convert Full Project", !GLOBAL_GET("gui/common/swap_cancel_ok"));
+		full_convert_button = ask_update_settings->add_button(TTR("Convert Full Project"), !GLOBAL_GET("gui/common/swap_cancel_ok"));
 		full_convert_button->connect("pressed", callable_mp(this, &ProjectManager::_full_convert_button_pressed));
 		add_child(ask_update_settings);
 

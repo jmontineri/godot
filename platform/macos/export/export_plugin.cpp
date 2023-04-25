@@ -137,7 +137,7 @@ void EditorExportPlatformMacOS::get_export_options(List<ExportOption> *r_options
 	r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "application/version"), "1.0"));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "application/copyright"), ""));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::DICTIONARY, "application/copyright_localized", PROPERTY_HINT_LOCALIZABLE_STRING), Dictionary()));
-	r_options->push_back(ExportOption(PropertyInfo(Variant::BOOL, "display/high_res"), false));
+	r_options->push_back(ExportOption(PropertyInfo(Variant::BOOL, "display/high_res"), true));
 
 #ifdef MACOS_ENABLED
 	r_options->push_back(ExportOption(PropertyInfo(Variant::INT, "codesign/codesign", PROPERTY_HINT_ENUM, "Disabled,Built-in (ad-hoc only),rcodesign,Xcode codesign"), 3, true));
@@ -768,7 +768,7 @@ Error EditorExportPlatformMacOS::_code_sign(const Ref<EditorExportPreset> &p_pre
 
 			String certificate_file = p_preset->get("codesign/certificate_file");
 			String certificate_pass = p_preset->get("codesign/certificate_password");
-			if (!certificate_file.is_empty() && !certificate_file.is_empty()) {
+			if (!certificate_file.is_empty() && !certificate_pass.is_empty()) {
 				args.push_back("--p12-file");
 				args.push_back(certificate_file);
 				args.push_back("--p12-password");

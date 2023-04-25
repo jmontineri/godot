@@ -1136,13 +1136,6 @@ void Environment::_validate_property(PropertyInfo &p_property) const {
 
 	};
 
-	static const char *high_end_prefixes[] = {
-		"ssr_",
-		"ssao_",
-		nullptr
-
-	};
-
 	const char **prefixes = hide_prefixes;
 	while (*prefixes) {
 		String prefix = String(*prefixes);
@@ -1154,20 +1147,6 @@ void Environment::_validate_property(PropertyInfo &p_property) const {
 		}
 
 		prefixes++;
-	}
-
-	if (RenderingServer::get_singleton()->is_low_end()) {
-		prefixes = high_end_prefixes;
-		while (*prefixes) {
-			String prefix = String(*prefixes);
-
-			if (p_property.name.begins_with(prefix)) {
-				p_property.usage = PROPERTY_USAGE_NO_EDITOR;
-				return;
-			}
-
-			prefixes++;
-		}
 	}
 }
 

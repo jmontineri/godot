@@ -82,7 +82,9 @@ class ProjectManager : public Control {
 
 	ConfirmationDialog *erase_ask = nullptr;
 	Label *erase_ask_label = nullptr;
-	CheckBox *delete_project_contents = nullptr;
+	// Comment out for now until we have a better warning system to
+	// ensure users delete their project only.
+	//CheckBox *delete_project_contents = nullptr;
 
 	ConfirmationDialog *erase_missing_ask = nullptr;
 	ConfirmationDialog *multi_open_ask = nullptr;
@@ -144,6 +146,7 @@ class ProjectManager : public Control {
 	void _on_search_term_changed(const String &p_term);
 
 	static Ref<Texture2D> _file_dialog_get_icon(const String &p_path);
+	static Ref<Texture2D> _file_dialog_get_thumbnail(const String &p_path);
 
 protected:
 	void _notification(int p_what);

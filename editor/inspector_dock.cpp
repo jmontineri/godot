@@ -186,7 +186,7 @@ void InspectorDock::_menu_option_confirm(int p_option, bool p_confirmed) {
 					}
 				}
 
-				int history_id = EditorUndoRedoManager::get_singleton()->get_history_for_object(current).id;
+				int history_id = EditorUndoRedoManager::get_singleton()->get_history_id_for_object(current);
 				EditorUndoRedoManager::get_singleton()->clear_history(true, history_id);
 
 				EditorNode::get_singleton()->edit_item(current, inspector);
@@ -298,8 +298,7 @@ void InspectorDock::_prepare_resource_extra_popup() {
 	popup->set_item_disabled(popup->get_item_index(RESOURCE_EDIT_CLIPBOARD), r.is_null());
 
 	Ref<Resource> current_res = _get_current_resource();
-	ERR_FAIL_COND(current_res.is_null());
-	popup->set_item_disabled(popup->get_item_index(RESOURCE_SHOW_IN_FILESYSTEM), current_res->is_built_in());
+	popup->set_item_disabled(popup->get_item_index(RESOURCE_SHOW_IN_FILESYSTEM), current_res.is_null() || current_res->is_built_in());
 }
 
 Ref<Resource> InspectorDock::_get_current_resource() const {
